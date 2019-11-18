@@ -5,7 +5,7 @@ import (
 	"log"
 )
 
-func (user *User) fingerprint() string {
+func (user *User) grabFingerprint() string {
 	client := user.client
 	resp, err := client.R().
 		SetHeaders(map[string]string{
@@ -23,8 +23,8 @@ func (user *User) fingerprint() string {
 		log.Println(err)
 	}
 
-	fingerprint := gjson.Get(resp.String(), "fingerprint")
-	log.Println("fingerprint", fingerprint.String())
+	fingerprint := gjson.Get(resp.String(), "grabFingerprint")
+	log.Println("grabFingerprint", fingerprint.String())
 	user.auth.fingerprint = fingerprint.String()
 	return ""
 }

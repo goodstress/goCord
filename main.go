@@ -2,11 +2,10 @@ package main
 
 import (
 	"fmt"
-	"log"
-
 	"github.com/bxcodec/faker/v3"
 	"github.com/go-resty/resty/v2"
 	"github.com/mssola/user_agent"
+	"log"
 
 	// "go.zoe.im/surferua"
 	// 	    "github.com/mileusna/useragent"
@@ -15,13 +14,17 @@ import (
 
 func main() {
 	fmt.Println("vim-go")
+
+
+
+	//create user
 	createUser()
 
 }
 func createUser() {
 	user := new(User)
-	user.init()
 	ua := user_agent.New("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36")
+	user.init()
 
 	log.Println(ua.Bot())
 	// userp := &user
@@ -30,7 +33,9 @@ func createUser() {
 
 func (user *User) init() {
 
+
 	user.grabCloudflare()
+	user.grabFingerprint()
 	user.details.username = faker.Username()
 	user.details.password = faker.Password()
 
@@ -78,7 +83,7 @@ func (user *User) register() {
 
 // RegPayload The payload used to register the account.
 type RegPayload struct {
-	Fingerprint   string      `json:"fingerprint"`
+	Fingerprint   string      `json:"grabFingerprint"`
 	Email         string      `json:"email"`
 	Username      string      `json:"username"`
 	Password      string      `json:"password"`
