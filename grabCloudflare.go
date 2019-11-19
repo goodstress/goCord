@@ -29,8 +29,9 @@ func (user *User) grabCloudflare() string {
 		log.Println(err)
 	}
 	// resp.Cookies()
-	client.SetCookies(resp.Cookies())
-	user.client = client
+	//set cookies
+	user.auth.cookies = resp.Cookies()
+
 
 	return ""
 

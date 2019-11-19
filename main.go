@@ -2,10 +2,13 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
 	"github.com/bxcodec/faker/v3"
 	"github.com/go-resty/resty/v2"
 	"github.com/mssola/user_agent"
 	"log"
+	"net/http"
+	"time"
 
 	// "go.zoe.im/surferua"
 	// 	    "github.com/mileusna/useragent"
@@ -21,8 +24,23 @@ func main() {
 	createUser()
 
 }
+
+//noinspection SpellCheckingInspection
+func randomStickyIP() string{
+	rand.Seed(time.Now().UnixNano())
+
+	min := 10001
+	max := 29999
+	randomPort := rand.Intn(max - min + 1) + min
+	ipString := "***REMOVED***:***REMOVED***" + "@us.smartproxy.com:" + string(randomPort)
+	return ipString
+}
 func createUser() {
+
 	user := new(User)
+	//set proxy
+	user.auth.proxy = randomStickyIP()
+	//noinspection SpellCheckingInspection
 	ua := user_agent.New("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36")
 	user.init()
 
@@ -94,7 +112,9 @@ type RegPayload struct {
 }
 
 type auth struct {
-	fingerprint, cfuid, userAgent, token, superProp string
+	fingerprint, cfuid, userAgent, token, superProp, proxy string
+	cookies []*http.Cookie
+	OpenMsg OpenMsg
 }
 
 type userDetails struct {

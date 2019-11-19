@@ -7,6 +7,8 @@ import (
 
 func (user *User) grabFingerprint() string {
 	client := user.client
+	client.SetProxy(user.auth.proxy)
+	client.SetCookies(user.auth.cookies)
 	resp, err := client.R().
 		SetHeaders(map[string]string{
 			"User-Agent":      user.auth.userAgent,
