@@ -6,12 +6,12 @@ import (
 	"log"
 )
 
-func (user *User) grabCloudflare() string {
+func (user *User) GrabCloudflare()  {
 
 	client := resty.New()
 	client.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 	client.SetProxy(user.auth.proxy)
-	client.SetHeader("User-Agent", user.auth.userAgent)
+	log.Println("proxy set: ", client.IsProxySet())
 	resp, err := client.R().
 		SetHeaders(map[string]string{
 			"User-Agent":                user.auth.userAgent,
@@ -34,6 +34,5 @@ func (user *User) grabCloudflare() string {
 	user.auth.cookies = resp.Cookies()
 log.Print("ran cloudflare")
 
-	return ""
 
 }

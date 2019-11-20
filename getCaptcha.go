@@ -28,7 +28,8 @@ func getCaptcha() string {
 
 func gitIt() string {
 	client := resty.New()
-	resp, err := client.R().Get("localhost:8080")
+	client.RemoveProxy()
+	resp, err := client.R().Get("http://0.0.0.0:8080")
 	if err != nil {
 		log.Println(err)
 

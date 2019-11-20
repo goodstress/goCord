@@ -6,11 +6,18 @@ import (
 	"log"
 )
 
-func (user *User) grabFingerprint()  {
+func (user *User) GrabFingerprint()  {
+	log.Println("proxy", user.auth.proxy)
 	log.Print("grabbing fingerprint")
-	client := new(resty.Client)
-	client.SetProxy(user.auth.proxy)
-	resp, err := client.R().
+	fingerPrintClient := resty.New()
+	//fingerPrintClient.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+	log.Print("created fingerPrintClient for fingerprint")
+	proxy := user.auth.proxy
+	fingerPrintClient.SetProxy(proxy)
+	log.Println("set proxy")
+	log.Println("proxy set: ", fingerPrintClient.IsProxySet())
+
+	resp, err := fingerPrintClient.R().
 		SetHeaders(map[string]string{
 			"User-Agent":      user.auth.userAgent,
 			"Accept":          "*/*",

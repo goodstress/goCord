@@ -1,8 +1,8 @@
 package main
 
 import (
+	"crypto/tls"
 	b64 "encoding/base64"
-	"encoding/json"
 	"github.com/bxcodec/faker/v3"
 	"github.com/go-resty/resty/v2"
 	"github.com/mssola/user_agent"
@@ -36,54 +36,58 @@ func main() {
 	wg.Add(1)
 	go createUser()
 	wg.Wait()
+	log.Println("terminated")
 }
 
 //noinspection SpellCheckingInspection
-func randomStickyIP() string{
+func (user *User) randomStickyIP() {
 	rand.Seed(time.Now().UnixNano())
 
 	min := 10001
 	max := 29999
 	randomPort := rand.Intn(max - min + 1) + min
 	log.Print("random port: ", randomPort)
+
 	ipString := "http://***REMOVED***:***REMOVED***" + "@us.smartproxy.com:" + strconv.Itoa(randomPort)
-	return ipString
+	user.auth.proxy = ipString
+	user.auth.hostname = "us.smartproxy.com:"
+	user.auth.port = strconv.Itoa(randomPort)
 }
 func createUser() {
 	log.Print("ran createUser")
 
 	user := new(User)
 	//set proxy
-	user.auth.proxy = randomStickyIP()
-	log.Print("Proxy: ", user.auth.proxy)
-	//noinspection SpellCheckingInspection
-	ua := user_agent.New("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36")
-	user.init()
+	user.randomStickyIP()
 
-	log.Println(ua.Bot())
+	log.Print("Proxy: ", user.auth.proxy)
+	user.auth.userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36"
+	//noinspection SpellCheckingInspection
+	user.init()
 	// userp := &user
 
 }
 
 func (user *User) init() {
 	log.Print("Ran init")
-
-	user.grabCloudflare()
-	user.grabFingerprint()
-	//setUsername
 	user.details.username = faker.Username()
+	user.details.password = faker.Password()
+	user.GrabCloudflare()
+
+	user.GrabFingerprint()
+
+	//setUsername
 	//create superProp
 	user.createSuperProp()
 	//user.createXTrack()
-	user.details.password = faker.Password()
 	user.GenEmail()
 	var registerWaitGroup sync.WaitGroup
 
 	user.register(registerWaitGroup)
 	registerWaitGroup.Wait()
-	var waitNoSmsGroup sync.WaitGroup
+	//var waitNoSmsGroup sync.WaitGroup
 	smsNeeded := make(chan string)
-	go user.openSocket(waitNoSmsGroup, smsNeeded)
+	go user.openSocket(smsNeeded)
 	msgSmsNeeded := <-smsNeeded
 	var emailConfirmed sync.WaitGroup
 	if msgSmsNeeded == "not" {
@@ -148,10 +152,13 @@ func (user *User) genUserAgent() {
 func (user *User) register(complete sync.WaitGroup) {
 	complete.Add(1)
 	captcha := getCaptcha()
+	log.Print("captcha: ", captcha)
 	realRegister := RegPayload{Fingerprint: user.auth.fingerprint, Email: user.details.email, Username: user.details.username, Password: user.details.password, Invite: nil, Consent: true, GiftCodeSkuID: nil, CAPTCHAKey: captcha}
 	registerURL := "https://discordapp.com/api/v6/auth/register"
-	client := new(resty.Client)
+	client := resty.New()
+	client.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 	client.SetProxy(user.auth.proxy)
+
 	resp, err := client.R().
 		SetBody(realRegister).
 		SetHeaders(map[string]string{
@@ -166,6 +173,7 @@ func (user *User) register(complete sync.WaitGroup) {
 	if err != nil {
 		log.Println(err)
 	}
+	log.Print(resp.String())
 	token := gjson.Get(resp.String(), "token").String()
 	user.auth.token = token
 	log.Println("set token in user to: ", token)
@@ -176,8 +184,8 @@ type emailString struct {
 	email string
 }
 func (user *User) GenEmail() string {
-	//client := user.client
-	client := new(resty.Client)
+	client := resty.New()
+	client.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 	client.SetProxy(user.auth.proxy)
 	_, err := client.R().
 		SetBody(`{"min_name_length": 10,"max_name_length": 10}`).
@@ -205,10 +213,13 @@ func (user *User) GenEmail() string {
 	    "Sec-Fetch-Mode": "cors",
 	    "Content-Type": "application/json;charset=UTF-8",
 		}).Post("https://api.internal.temp-mail.io/api/v2/email/new")
-	var newEmail emailString
-	json.Unmarshal(secondRequest.Body(), &newEmail)
+	if err != nil {
+		log.Print(err)
+	}
+	log.Print(secondRequest.String())
+	user.details.email = gjson.Get(secondRequest.String(), "email").String()
 	log.Print(user.details.email)
-	user.details.email = newEmail.email
+
 	return user.details.email
 
 
@@ -222,7 +233,8 @@ func (user *User) GenEmail() string {
 func (user *User) getVerifyString() string{
 checkEmail := "https://api.internal.temp-mail.io/api/v2/email/replaceThis/messages"
 fullCheckUrl := strings.Replace(checkEmail, "replaceThis", user.details.email, 1)
-client := new(resty.Client)
+client := resty.New()
+client.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 client.SetProxy(user.auth.proxy)
 
 resp, err := client.R().
@@ -245,7 +257,8 @@ func (user *User) confirmEmail(confirmedWait sync.WaitGroup) {
 	initialPayload := new(EmailVerify)
 	initialPayload.Token = verifyString
 	initialPayload.CAPTCHAKey = nil
-	client := new(resty.Client)
+	client := resty.New()
+	client.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 	client.SetProxy(user.auth.proxy)
 	referrer := "https://discordapp.com/verify?token=" +verifyString
 	initialMarshalled, err := initialPayload.Marshal()
@@ -315,14 +328,11 @@ time.Sleep(5*time.Second)
 		log.Print("error occurred")
 		log.Print(err)
 	}
-	token, err := UnmarshalVerifyResponse(verifyWithCaptcha.Body())
 
-	if err != nil {
-		log.Print("error occurred")
-		log.Print(err)
-	}
 	//set user token
-	user.auth.token	= token.Token
+	user.auth.token	= gjson.Get(verifyWithCaptcha.String(), "token").String()
+	log.Print(verifyWithCaptcha.String())
+
 	confirmedWait.Done()
 
 
@@ -345,9 +355,9 @@ type RegPayload struct {
 }
 
 type auth struct {
-	fingerprint, cfuid, userAgent, token, proxy, SuperProp string
+	fingerprint, cfuid, userAgent, token, proxy, SuperProp, hostname, port string
 	cookies []*http.Cookie
-	OpenMsg OpenMsg
+	OpenMsg []byte
 }
 
 type userDetails struct {
@@ -358,6 +368,5 @@ type userDetails struct {
 type User struct {
 	details userDetails
 	auth    auth
-	client  *resty.Client
 }
 
