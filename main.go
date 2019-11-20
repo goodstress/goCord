@@ -1,32 +1,41 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
-	"strings"
-	"golang.org/x/net/http2"
 	b64 "encoding/base64"
-	"math/rand"
+	"encoding/json"
 	"github.com/bxcodec/faker/v3"
 	"github.com/go-resty/resty/v2"
 	"github.com/mssola/user_agent"
 	"log"
-	"net/http"
-	"time"
+	"math/rand"
 	"mvdan.cc/xurls/v2"
+	"net/http"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
 	// "go.zoe.im/surferua"
 	// 	    "github.com/mileusna/useragent"
 	"github.com/tidwall/gjson"
 )
+var wg sync.WaitGroup
 
 func main() {
-	fmt.Println("vim-go")
+	http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 100
+
+
+
+	//for i := 1; i <= 10; i++ {
+	//	fmt.Println(i)
+	//}
 
 
 
 	//create user
-	createUser()
-
+	log.Print("creating user")
+	wg.Add(1)
+	go createUser()
+	wg.Wait()
 }
 
 //noinspection SpellCheckingInspection
@@ -36,14 +45,17 @@ func randomStickyIP() string{
 	min := 10001
 	max := 29999
 	randomPort := rand.Intn(max - min + 1) + min
-	ipString := "***REMOVED***:***REMOVED***" + "@us.smartproxy.com:" + string(randomPort)
+	log.Print("random port: ", randomPort)
+	ipString := "http://***REMOVED***:***REMOVED***" + "@us.smartproxy.com:" + strconv.Itoa(randomPort)
 	return ipString
 }
 func createUser() {
+	log.Print("ran createUser")
 
 	user := new(User)
 	//set proxy
 	user.auth.proxy = randomStickyIP()
+	log.Print("Proxy: ", user.auth.proxy)
 	//noinspection SpellCheckingInspection
 	ua := user_agent.New("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36")
 	user.init()
@@ -54,7 +66,7 @@ func createUser() {
 }
 
 func (user *User) init() {
-
+	log.Print("Ran init")
 
 	user.grabCloudflare()
 	user.grabFingerprint()
@@ -64,6 +76,22 @@ func (user *User) init() {
 	user.createSuperProp()
 	//user.createXTrack()
 	user.details.password = faker.Password()
+	user.GenEmail()
+	var registerWaitGroup sync.WaitGroup
+
+	user.register(registerWaitGroup)
+	registerWaitGroup.Wait()
+	var waitNoSmsGroup sync.WaitGroup
+	smsNeeded := make(chan string)
+	go user.openSocket(waitNoSmsGroup, smsNeeded)
+	msgSmsNeeded := <-smsNeeded
+	var emailConfirmed sync.WaitGroup
+	if msgSmsNeeded == "not" {
+		go user.confirmEmail(emailConfirmed)
+	}
+	emailConfirmed.Wait()
+	user.writeAccount()
+
 
 }
 
@@ -117,11 +145,13 @@ func (user *User) genUserAgent() {
 
 // }
 
-func (user *User) register() {
+func (user *User) register(complete sync.WaitGroup) {
+	complete.Add(1)
 	captcha := getCaptcha()
 	realRegister := RegPayload{Fingerprint: user.auth.fingerprint, Email: user.details.email, Username: user.details.username, Password: user.details.password, Invite: nil, Consent: true, GiftCodeSkuID: nil, CAPTCHAKey: captcha}
 	registerURL := "https://discordapp.com/api/v6/auth/register"
-	client := user.client
+	client := new(resty.Client)
+	client.SetProxy(user.auth.proxy)
 	resp, err := client.R().
 		SetBody(realRegister).
 		SetHeaders(map[string]string{
@@ -139,13 +169,15 @@ func (user *User) register() {
 	token := gjson.Get(resp.String(), "token").String()
 	user.auth.token = token
 	log.Println("set token in user to: ", token)
+	complete.Done()
 
 }
 type emailString struct {
 	email string
 }
 func (user *User) GenEmail() string {
-	client := user.client
+	//client := user.client
+	client := new(resty.Client)
 	client.SetProxy(user.auth.proxy)
 	_, err := client.R().
 		SetBody(`{"min_name_length": 10,"max_name_length": 10}`).
@@ -190,7 +222,7 @@ func (user *User) GenEmail() string {
 func (user *User) getVerifyString() string{
 checkEmail := "https://api.internal.temp-mail.io/api/v2/email/replaceThis/messages"
 fullCheckUrl := strings.Replace(checkEmail, "replaceThis", user.details.email, 1)
-client := user.client
+client := new(resty.Client)
 client.SetProxy(user.auth.proxy)
 
 resp, err := client.R().
@@ -207,14 +239,15 @@ resp, err := client.R().
 
 }
 
-func (user *User) confirmEmail() {
+func (user *User) confirmEmail(confirmedWait sync.WaitGroup) {
+	confirmedWait.Add(1)
 	verifyString := user.getVerifyString()
 	initialPayload := new(EmailVerify)
 	initialPayload.Token = verifyString
 	initialPayload.CAPTCHAKey = nil
-	client := user.client
+	client := new(resty.Client)
 	client.SetProxy(user.auth.proxy)
-	refferer := "https://discordapp.com/verify?token=" +verifyString
+	referrer := "https://discordapp.com/verify?token=" +verifyString
 	initialMarshalled, err := initialPayload.Marshal()
 	if err != nil {
 		log.Print("error occurred")
@@ -223,28 +256,28 @@ func (user *User) confirmEmail() {
 
 		verifyNoCaptcha, err := client.R().
 		SetHeaders(map[string]string{
-		"authority": "discordapp.com",
-		"pragma": "no-cache",
-		"cache-control": "no-cache",
+		"authority":          "discordapp.com",
+		"pragma":             "no-cache",
+		"cache-control":      "no-cache",
 		"x-super-properties": user.auth.SuperProp,
-		"x-fingerprint": user.auth.fingerprint,
-		"accept-language": "en-US",
-		"user-agent": user.auth.userAgent,
-		"content-type": "application/json",
-		"authorization": "undefined",
-		"dnt": "1",
-		"origin": "https://discordapp.com",
-		"accept": "*/*",
-		"sec-fetch-site": "same-origin",
-		"sec-fetch-mode": "cors",
-		"referer": refferer,
-		"accept-encoding": "gzip, deflate, br",
+		"x-fingerprint":      user.auth.fingerprint,
+		"accept-language":    "en-US",
+		"user-agent":         user.auth.userAgent,
+		"content-type":       "application/json",
+		"authorization":      "undefined",
+		"dnt":                "1",
+		"origin":             "https://discordapp.com",
+		"accept":             "*/*",
+		"sec-fetch-site":     "same-origin",
+		"sec-fetch-mode":     "cors",
+		"referer":            referrer,
+		"accept-encoding":    "gzip, deflate, br",
 	}).SetCookies(user.auth.cookies).
 		SetBody(initialMarshalled).
 		Post("https://discordapp.com/api/v6/auth/verify")
 	if err != nil {
 		log.Print("error occurred")
-		log.Print(verifyNoCaptcha.Body())
+		log.Print(verifyNoCaptcha.String())
 		log.Print(err)
 	}
 time.Sleep(5*time.Second)
@@ -259,22 +292,22 @@ time.Sleep(5*time.Second)
 	}
 	verifyWithCaptcha, err := client.R().
 		SetHeaders(map[string]string{
-			"authority": "discordapp.com",
-			"pragma": "no-cache",
-			"cache-control": "no-cache",
+			"authority":          "discordapp.com",
+			"pragma":             "no-cache",
+			"cache-control":      "no-cache",
 			"x-super-properties": user.auth.SuperProp,
-			"x-fingerprint": user.auth.fingerprint,
-			"accept-language": "en-US",
-			"user-agent": user.auth.userAgent,
-			"content-type": "application/json",
-			"authorization": "undefined",
-			"dnt": "1",
-			"origin": "https://discordapp.com",
-			"accept": "*/*",
-			"sec-fetch-site": "same-origin",
-			"sec-fetch-mode": "cors",
-			"referer": refferer,
-			"accept-encoding": "gzip, deflate, br",
+			"x-fingerprint":      user.auth.fingerprint,
+			"accept-language":    "en-US",
+			"user-agent":         user.auth.userAgent,
+			"content-type":       "application/json",
+			"authorization":      "undefined",
+			"dnt":                "1",
+			"origin":             "https://discordapp.com",
+			"accept":             "*/*",
+			"sec-fetch-site":     "same-origin",
+			"sec-fetch-mode":     "cors",
+			"referer":            referrer,
+			"accept-encoding":    "gzip, deflate, br",
 		}).SetCookies(user.auth.cookies).
 		SetBody(captchaMarshalled).
 		Post("https://discordapp.com/api/v6/auth/verify")
@@ -290,6 +323,7 @@ time.Sleep(5*time.Second)
 	}
 	//set user token
 	user.auth.token	= token.Token
+	confirmedWait.Done()
 
 
 
@@ -326,3 +360,4 @@ type User struct {
 	auth    auth
 	client  *resty.Client
 }
+

@@ -1,14 +1,15 @@
 package main
 
 import (
+	"github.com/go-resty/resty/v2"
 	"github.com/tidwall/gjson"
 	"log"
 )
 
-func (user *User) grabFingerprint() string {
-	client := user.client
+func (user *User) grabFingerprint()  {
+	log.Print("grabbing fingerprint")
+	client := new(resty.Client)
 	client.SetProxy(user.auth.proxy)
-	client.SetCookies(user.auth.cookies)
 	resp, err := client.R().
 		SetHeaders(map[string]string{
 			"User-Agent":      user.auth.userAgent,
@@ -22,11 +23,11 @@ func (user *User) grabFingerprint() string {
 		}).
 		Get("https://discordapp.com/api/v6/experiments")
 	if err != nil {
+		log.Print("fingerprint error:::")
 		log.Println(err)
 	}
 
 	fingerprint := gjson.Get(resp.String(), "grabFingerprint")
 	log.Println("grabFingerprint", fingerprint.String())
 	user.auth.fingerprint = fingerprint.String()
-	return ""
 }

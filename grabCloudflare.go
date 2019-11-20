@@ -10,7 +10,7 @@ func (user *User) grabCloudflare() string {
 
 	client := resty.New()
 	client.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
-	client.SetProxy("127.0.0.1:24000")
+	client.SetProxy(user.auth.proxy)
 	client.SetHeader("User-Agent", user.auth.userAgent)
 	resp, err := client.R().
 		SetHeaders(map[string]string{
@@ -26,12 +26,13 @@ func (user *User) grabCloudflare() string {
 		}).
 		Get("https://discordapp.com")
 	if err != nil {
+		log.Println("Cloudflare Error::::")
 		log.Println(err)
 	}
 	// resp.Cookies()
 	//set cookies
 	user.auth.cookies = resp.Cookies()
-
+log.Print("ran cloudflare")
 
 	return ""
 
