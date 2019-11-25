@@ -3,7 +3,7 @@ package main
 import (
 	"crypto/tls"
 	"github.com/gorilla/websocket"
-	"github.com/tidwall/gjson"
+	//"github.com/tidwall/gjson"
 	"log"
 	"net/http"
 	"net/url"
@@ -18,6 +18,8 @@ func genOpenMsg() {
 func (user *User) openSocket( smsNeeded chan string)  {
 	log.Print("in websocket function")
 	user.CreateOpenMsg()
+	host := user.auth.hostname + user.auth.port
+	log.Print(host)
 	log.Print("open msg complete")
 	var dialer = websocket.Dialer{
 
@@ -25,7 +27,7 @@ func (user *User) openSocket( smsNeeded chan string)  {
 
 			Scheme: "http", // or "https" depending on your proxy,
 			User: url.UserPassword("***REMOVED***", "***REMOVED***"),
-			Host: user.auth.hostname+user.auth.port,
+			Host: host,
 		}),
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		HandshakeTimeout: 30*time.Second,
@@ -33,21 +35,24 @@ func (user *User) openSocket( smsNeeded chan string)  {
 		WriteBufferSize: 1024,
 	}
 	log.Print("setup dialer")
-	c, resp, err := dialer.Dial("wss://gateway.discord.gg/?encoding=json&v=6",nil)
-	if err == websocket.ErrBadHandshake {
-		log.Printf("handshake failed with status %d", resp.StatusCode)
+	c, _, err := dialer.Dial("wss://gateway.discord.gg/?encoding=json&v=6",nil)
+	if err != nil {
+		log.Print("dial err: ", err)
 	}
 	log.Print("dialed")
+
+	err = c.WriteMessage(websocket.TextMessage, user.auth.OpenMsg)
 	if err != nil {
-		log.Print(err)
-		log.Fatal("dial:", err)
+		log.Print("write error: ", err)
 	}
+	log.Print("sent open msg")
+
 
 	defer c.Close()
 
 	done := make(chan struct{})
-	_ = c.WriteMessage(websocket.TextMessage, user.auth.OpenMsg)
-log.Print("sent open msg")
+	//_ = c.WriteMessage(websocket.TextMessage, user.auth.OpenMsg)
+
 
 	go func() {
 		defer close(done)
@@ -63,15 +68,15 @@ log.Print("sent open msg")
 				return
 			}
 			log.Printf("recv: %s", message)
-			requiredAction := gjson.Get(string(message), "d.required_action").String()
-			log.Print("requiredAction: ", requiredAction)
-			if requiredAction == "REQUIRE_VERIFIED_PHONE" {
-			log.Print("Error phone required")
-			c.Close()
-
-
-			}
-			log.Printf("recv: %s", message)
+			//requiredAction := gjson.Get(string(message), "d.required_action").String()
+			//log.Print("requiredAction: ", requiredAction)
+			//if requiredAction == "REQUIRE_VERIFIED_PHONE" {
+			//log.Print("Error phone required")
+			//c.Close()
+			//
+			//
+			//}
+			//log.Printf("recv: %s", message)
 		}
 	}()
 
