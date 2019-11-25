@@ -7,21 +7,21 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"time"
+	//"time"
 )
 //create dialer
 
-func genOpenMsg() {
-
-}
+//func genOpenMsg() {
+//
+//}
 
 func (user *User) openSocket( smsNeeded chan string)  {
 	log.Print("in websocket function")
 	user.CreateOpenMsg()
+	log.Print("open msg created")
 	host := user.auth.hostname + user.auth.port
 	log.Print(host)
-	log.Print("open msg complete")
-	var dialer = websocket.Dialer{
+	var proxyDialer = websocket.Dialer{
 
 		Proxy: http.ProxyURL(&url.URL{
 
@@ -30,12 +30,9 @@ func (user *User) openSocket( smsNeeded chan string)  {
 			Host: host,
 		}),
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		HandshakeTimeout: 30*time.Second,
-		ReadBufferSize: 1024,
-		WriteBufferSize: 1024,
 	}
 	log.Print("setup dialer")
-	c, _, err := dialer.Dial("wss://gateway.discord.gg/?encoding=json&v=6",nil)
+	c, _, err := proxyDialer.Dial("wss://gateway.discord.gg/?encoding=json&v=6",nil)
 	if err != nil {
 		log.Print("dial err: ", err)
 	}
@@ -48,26 +45,28 @@ func (user *User) openSocket( smsNeeded chan string)  {
 	log.Print("sent open msg")
 
 
-	defer c.Close()
+	//defer c.Close()
 
 	done := make(chan struct{})
 	//_ = c.WriteMessage(websocket.TextMessage, user.auth.OpenMsg)
 
 
-	go func() {
+	go func(){
 		defer close(done)
-		smsTicker := time.NewTicker(20*time.Second)
+		//smsTicker := time.NewTicker(20*time.Second)
+		//sendOpen := time.NewTicker(5*time.Second)
 		for {
-			select {
-			case <-smsTicker.C:
-				smsNeeded<-"not"
-			}
+			//select {
+			//case <-smsTicker.C:
+			//	smsNeeded<-"not"
+			//
+			//}
 			_, message, err := c.ReadMessage()
 			if err != nil {
 				log.Println("read:", err)
 				return
 			}
-			log.Printf("recv: %s", message)
+			log.Printf("recv: %s", string(message))
 			//requiredAction := gjson.Get(string(message), "d.required_action").String()
 			//log.Print("requiredAction: ", requiredAction)
 			//if requiredAction == "REQUIRE_VERIFIED_PHONE" {

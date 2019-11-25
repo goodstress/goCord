@@ -2,8 +2,9 @@ package main
 
 import (
 	"encoding/json"
+	//"errors"
 	"github.com/mssola/user_agent"
-	"go/types"
+	//"go/types"
 	"log"
 )
 
@@ -32,7 +33,10 @@ func (user *User) CreateOpenMsg() {
 
 	msg.D.Properties.Browser, msg.D.Properties.BrowserVersion = ua.Browser()
 	user.auth.OpenMsg, _ = msg.Marshal()
-
+	//if err != nil {
+	//	log.Print("marshal error: ", err)
+	//}
+	//user.auth.OpenMsg = []byte(string(user.auth.OpenMsg) + "}")
 	log.Print("marshalled msg")
 	log.Print(string(user.auth.OpenMsg))
 	//return msg.Marshal()
