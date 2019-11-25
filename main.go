@@ -88,11 +88,16 @@ func (user *User) init() {
 	//var waitNoSmsGroup sync.WaitGroup
 	smsNeeded := make(chan string)
 	go user.openSocket(smsNeeded)
-	msgSmsNeeded := <-smsNeeded
+	log.Print("socket go process created")
 	var emailConfirmed sync.WaitGroup
+	go user.confirmEmail(emailConfirmed)
+
+	log.Print("email process created")
+	msgSmsNeeded := <-smsNeeded
 	if msgSmsNeeded == "not" {
-		go user.confirmEmail(emailConfirmed)
+		log.Print("sms not needed")
 	}
+	log.Print("ran confirm email")
 	emailConfirmed.Wait()
 	user.writeAccount()
 
@@ -236,7 +241,7 @@ fullCheckUrl := strings.Replace(checkEmail, "replaceThis", user.details.email, 1
 client := resty.New()
 client.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 client.SetProxy(user.auth.proxy)
-
+time.Sleep(4 * time.Second)
 resp, err := client.R().
 	Get(fullCheckUrl)
 	if err != nil {
@@ -260,7 +265,7 @@ func (user *User) confirmEmail(confirmedWait sync.WaitGroup) {
 	client := resty.New()
 	client.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 	client.SetProxy(user.auth.proxy)
-	referrer := "https://discordapp.com/verify?token=" +verifyString
+	referrer := "https://discordapp.com/verify?token=" + verifyString
 	initialMarshalled, err := initialPayload.Marshal()
 	if err != nil {
 		log.Print("error occurred")
