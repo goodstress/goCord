@@ -19,14 +19,14 @@ func (user *User) openSocket( smsNeeded chan string)  {
 	log.Print("in websocket function")
 	user.CreateOpenMsg()
 	log.Print("open msg created")
-	host := user.auth.hostname + user.auth.port
+	host := user.auth.hostname
 	log.Print(host)
 	var proxyDialer = websocket.Dialer{
 
 		Proxy: http.ProxyURL(&url.URL{
 
 			Scheme: "http", // or "https" depending on your proxy,
-			User: url.UserPassword("***REMOVED***", "***REMOVED***"),
+			User: url.UserPassword(user.auth.user, "***REMOVED***"),
 			Host: host,
 		}),
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
@@ -44,12 +44,20 @@ func (user *User) openSocket( smsNeeded chan string)  {
 	}
 	log.Print("sent open msg")
 
+	err = c.WriteMessage(websocket.TextMessage, []byte(`{"op":4,"d":{"guild_id":null,"channel_id":null,"self_mute":true,"self_deaf":false,"self_video":false}}`))
+	if err != nil {
+		log.Print("secondary open msg error: ", err)
+	}
+	log.Print("sent secondary open msg")
+
+
 
 	//defer c.Close()
 
 	done := make(chan struct{})
 	//_ = c.WriteMessage(websocket.TextMessage, user.auth.OpenMsg)
 
+	//heartbeat := time.NewTicker(41250*time.Millisecond)
 
 	go func(){
 		defer close(done)
@@ -64,9 +72,9 @@ func (user *User) openSocket( smsNeeded chan string)  {
 			_, message, err := c.ReadMessage()
 			if err != nil {
 				log.Println("read:", err)
-				return
 			}
 			log.Printf("recv: %s", string(message))
+
 			//requiredAction := gjson.Get(string(message), "d.required_action").String()
 			//log.Print("requiredAction: ", requiredAction)
 			//if requiredAction == "REQUIRE_VERIFIED_PHONE" {
@@ -76,13 +84,12 @@ func (user *User) openSocket( smsNeeded chan string)  {
 			//
 			//}
 			//log.Printf("recv: %s", message)
+
 		}
+
 	}()
 
-	if err != nil {
-		log.Print("error occured::::")
-		log.Print(err)
-	}
+
 
 
 

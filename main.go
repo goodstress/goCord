@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"github.com/thanhpk/randstr"
 	// "go.zoe.im/surferua"
 	// 	    "github.com/mileusna/useragent"
 	"github.com/tidwall/gjson"
@@ -47,11 +48,13 @@ func (user *User) randomStickyIP() {
 	max := 29999
 	randomPort := rand.Intn(max - min + 1) + min
 	log.Print("random port: ", randomPort)
+	randSession := randstr.String(16)
+	ipString := "http://user-country-us-session-" + randSession + ":***REMOVED***" + "@gate.smartproxy.com:7000"
 
-	ipString := "http://***REMOVED***:***REMOVED***" + "@us.smartproxy.com:" + strconv.Itoa(randomPort)
 	user.auth.proxy = ipString
-	user.auth.hostname = "us.smartproxy.com:"
-	user.auth.port = strconv.Itoa(randomPort)
+	user.auth.hostname = "gate.smartproxy.com:7000"
+	user.auth.user = "user-country-us-session-" + randSession
+
 }
 func createUser() {
 	log.Print("ran createUser")
@@ -75,7 +78,8 @@ func (user *User) init() {
 	user.GrabCloudflare()
 
 	user.GrabFingerprint()
-
+	log.Print("sleeping for 30 seconds")
+	time.Sleep(30*time.Second)
 	//setUsername
 	//create superProp
 	user.createSuperProp()
@@ -90,6 +94,7 @@ func (user *User) init() {
 	go user.openSocket(smsNeeded)
 	log.Print("socket go process created")
 	var emailConfirmed sync.WaitGroup
+	time.Sleep(20*time.Second)
 	go user.confirmEmail(emailConfirmed)
 
 	log.Print("email process created")
@@ -258,6 +263,7 @@ resp, err := client.R().
 
 func (user *User) confirmEmail(confirmedWait sync.WaitGroup) {
 	confirmedWait.Add(1)
+	time.Sleep(5*time.Second)
 	verifyString := user.getVerifyString()
 	initialPayload := new(EmailVerify)
 	initialPayload.Token = verifyString
@@ -266,38 +272,38 @@ func (user *User) confirmEmail(confirmedWait sync.WaitGroup) {
 	client.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 	client.SetProxy(user.auth.proxy)
 	referrer := "https://discordapp.com/verify?token=" + verifyString
-	initialMarshalled, err := initialPayload.Marshal()
-	if err != nil {
-		log.Print("error occurred")
-		log.Print(err)
-	}
-
-		verifyNoCaptcha, err := client.R().
-		SetHeaders(map[string]string{
-		"authority":          "discordapp.com",
-		"pragma":             "no-cache",
-		"cache-control":      "no-cache",
-		"x-super-properties": user.auth.SuperProp,
-		"x-fingerprint":      user.auth.fingerprint,
-		"accept-language":    "en-US",
-		"user-agent":         user.auth.userAgent,
-		"content-type":       "application/json",
-		"authorization":      "undefined",
-		"dnt":                "1",
-		"origin":             "https://discordapp.com",
-		"accept":             "*/*",
-		"sec-fetch-site":     "same-origin",
-		"sec-fetch-mode":     "cors",
-		"referer":            referrer,
-		"accept-encoding":    "gzip, deflate, br",
-	}).SetCookies(user.auth.cookies).
-		SetBody(initialMarshalled).
-		Post("https://discordapp.com/api/v6/auth/verify")
-	if err != nil {
-		log.Print("error occurred")
-		log.Print(verifyNoCaptcha.String())
-		log.Print(err)
-	}
+	//initialMarshalled, err := initialPayload.Marshal()
+	//if err != nil {
+	//	log.Print("error occurred")
+	//	log.Print(err)
+	//}
+	//
+	//	verifyNoCaptcha, err := client.R().
+	//	SetHeaders(map[string]string{
+	//	"authority":          "discordapp.com",
+	//	"pragma":             "no-cache",
+	//	"cache-control":      "no-cache",
+	//	"x-super-properties": user.auth.SuperProp,
+	//	"x-fingerprint":      user.auth.fingerprint,
+	//	"accept-language":    "en-US",
+	//	"user-agent":         user.auth.userAgent,
+	//	"content-type":       "application/json",
+	//	"authorization":      "undefined",
+	//	"dnt":                "1",
+	//	"origin":             "https://discordapp.com",
+	//	"accept":             "*/*",
+	//	"sec-fetch-site":     "same-origin",
+	//	"sec-fetch-mode":     "cors",
+	//	"referer":            referrer,
+	//	"accept-encoding":    "gzip, deflate, br",
+	//}).SetCookies(user.auth.cookies).
+	//	SetBody(initialMarshalled).
+	//	Post("https://discordapp.com/api/v6/auth/verify")
+	//if err != nil {
+	//	log.Print("error occurred")
+	//	log.Print(verifyNoCaptcha.String())
+	//	log.Print(err)
+	//}
 time.Sleep(5*time.Second)
 	payloadWithCaptcha := new(EmailVerify)
 	captcha := getCaptcha()
@@ -360,7 +366,7 @@ type RegPayload struct {
 }
 
 type auth struct {
-	fingerprint, cfuid, userAgent, token, proxy, SuperProp, hostname, port string
+	fingerprint, cfuid, userAgent, token, proxy, SuperProp, hostname, user string
 	cookies []*http.Cookie
 	OpenMsg []byte
 }
