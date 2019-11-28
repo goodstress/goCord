@@ -4,17 +4,18 @@ import (
 	"crypto/tls"
 	b64 "encoding/base64"
 	"github.com/bxcodec/faker/v3"
+	"github.com/corpix/uarand"
 	"github.com/go-resty/resty/v2"
 	"github.com/mssola/user_agent"
+	"github.com/thanhpk/randstr"
 	"log"
 	"math/rand"
 	"mvdan.cc/xurls/v2"
 	"net/http"
-	"strconv"
+	//"strconv"
 	"strings"
 	"sync"
 	"time"
-	"github.com/thanhpk/randstr"
 	// "go.zoe.im/surferua"
 	// 	    "github.com/mileusna/useragent"
 	"github.com/tidwall/gjson"
@@ -44,16 +45,16 @@ func main() {
 func (user *User) randomStickyIP() {
 	rand.Seed(time.Now().UnixNano())
 
-	min := 10001
-	max := 29999
-	randomPort := rand.Intn(max - min + 1) + min
-	log.Print("random port: ", randomPort)
+	//min := 10001
+	//max := 29999
+	//randomPort := rand.Intn(max - min + 1) + min
+	//log.Print("random port: ", randomPort)
 	randSession := randstr.String(16)
-	ipString := "http://user-country-us-session-" + randSession + ":***REMOVED***" + "@gate.smartproxy.com:7000"
+	ipString := "http://user-***REMOVED***-country-us-session-" + randSession + ":***REMOVED***" + "@gate.smartproxy.com:7000"
 
 	user.auth.proxy = ipString
 	user.auth.hostname = "gate.smartproxy.com:7000"
-	user.auth.user = "user-country-us-session-" + randSession
+	user.auth.user = "user-***REMOVED***-country-us-session-" + randSession
 
 }
 func createUser() {
@@ -64,15 +65,18 @@ func createUser() {
 	user.randomStickyIP()
 
 	log.Print("Proxy: ", user.auth.proxy)
-	user.auth.userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36"
+	user.genUserA
+	//user.auth.userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36"
 	//noinspection SpellCheckingInspection
 	user.init()
+
 	// userp := &user
 
 }
 
 func (user *User) init() {
 	log.Print("Ran init")
+
 	user.details.username = faker.Username()
 	user.details.password = faker.Password()
 	user.GrabCloudflare()
@@ -147,9 +151,10 @@ func (user *User) createSuperProp() {
 //}
 func (user *User) genUserAgent() {
 	//noinspection ALL
-	agent := "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36"
+	agent := uarand.GetRandom()
+	//agent := "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36"
 	user.auth.userAgent = agent
-	log.Println("Set useragent")
+	log.Println("Set useragent to: ", agent)
 }
 
 // func superProp(agent string) string {

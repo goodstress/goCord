@@ -4,6 +4,7 @@ go 1.12
 
 require (
 	github.com/bxcodec/faker/v3 v3.1.0
+	github.com/corpix/uarand v0.1.1
 	github.com/go-resty/resty/v2 v2.1.0
 	github.com/gorilla/websocket v1.4.1
 	github.com/mssola/user_agent v0.5.0
