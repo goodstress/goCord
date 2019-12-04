@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/tls"
 	"github.com/gorilla/websocket"
+	"github.com/tidwall/gjson"
 	"time"
 
 	//"github.com/tidwall/gjson"
@@ -18,7 +19,7 @@ import (
 //
 //}
 
-func (user *User) openSocket() {
+func (user *User) openSocket(smsNeeded chan string) {
 	log.Print("in websocket function")
 	user.CreateOpenMsg()
 	log.Print("open msg created")
@@ -76,8 +77,8 @@ func (user *User) openSocket() {
 			}
 			log.Printf("recv: %s", string(message))
 
-			//requiredAction := gjson.Get(string(message), "d.required_action").String()
-			//log.Print("requiredAction: ", requiredAction)
+			requiredAction := gjson.Get(string(message), "d.required_action").String()
+			log.Print("requiredAction: ", requiredAction)
 			//if requiredAction == "REQUIRE_VERIFIED_PHONE" {
 			//log.Print("Error phone required")
 			//c.Close()
