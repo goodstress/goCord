@@ -26,7 +26,6 @@ func (user *User) openSocket(smsNeeded chan string) {
 	host := user.auth.hostname
 	log.Print(host)
 	var proxyDialer = websocket.Dialer{
-
 		Proxy: http.ProxyURL(&url.URL{
 
 			Scheme: "http", // or "https" depending on your proxy,

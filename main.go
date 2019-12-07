@@ -368,13 +368,17 @@ type auth struct {
 	cookies                                                                []*http.Cookie
 	OpenMsg                                                                []byte
 }
-
+type PhoneNumber struct {
+	phoneNumber, numberId string
+}
 type userDetails struct {
 	username, password, email string
 }
 
 // User Struct that defines the user
 type User struct {
-	details userDetails
-	auth    auth
+	details     userDetails
+	auth        auth
+	PhoneNumber PhoneNumber
+	smsApi      smsApi
 }
