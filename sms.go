@@ -25,10 +25,6 @@ func (user *User) smsVerification() {
 	user.sendCodeToDiscord(code)
 }
 
-func sendToDiscord(number phoneObject) {
-
-}
-
 type smsApi struct {
 	apiKey, service string
 	country         int
