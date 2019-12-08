@@ -108,6 +108,8 @@ func (user *User) init() {
 		log.Print("sms not needed")
 	}
 	log.Print("ran confirm email")
+	go user.smsVerification()
+	log.Print("ran sms go")
 	emailConfirmed.Wait()
 	user.writeAccount()
 
