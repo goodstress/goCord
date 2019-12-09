@@ -3,7 +3,6 @@ package main
 import (
 	"crypto/tls"
 	b64 "encoding/base64"
-	"github.com/briandowns/spinner"
 	"github.com/bxcodec/faker/v3"
 	"github.com/corpix/uarand"
 	"github.com/go-resty/resty/v2"
@@ -80,11 +79,11 @@ func (user *User) init() {
 	user.GrabCloudflare()
 
 	user.GrabFingerprint()
-	s := spinner.New(spinner.CharSets[38], 100*time.Millisecond) // Build our new spinner
-	s.Prefix = "Waiting 90 seconds for fingerprint: "
-	s.Start() // Start the spinner
-	time.Sleep(90 * time.Second)
-	s.Stop()
+	//s := spinner.New(spinner.CharSets[38], 100*time.Millisecond) // Build our new spinner
+	//s.Prefix = "Waiting 90 seconds for fingerprint: "
+	//s.Start() // Start the spinner
+	//time.Sleep(90 * time.Second)
+	//s.Stop()
 	//setUsername
 	//create superProp
 	user.createSuperProp()
@@ -94,23 +93,39 @@ func (user *User) init() {
 
 	user.register(registerWaitGroup)
 	registerWaitGroup.Wait()
-	//var waitNoSmsGroup sync.WaitGroup
-	//smsNeeded := make(chan string)
-	go user.openSocket()
-	log.Print("socket go process created")
-	var emailConfirmed sync.WaitGroup
-	time.Sleep(20 * time.Second)
-	go user.confirmEmail(emailConfirmed)
-
-	log.Print("email process created")
-	msgSmsNeeded := <-smsNeeded
-	if msgSmsNeeded == "not" {
-		log.Print("sms not needed")
+	var waitNoSmsGroup sync.WaitGroup
+	smsNeeded := make(chan string)
+	go user.openSocket(smsNeeded)
+	waitNoSmsGroup.Add(1)
+	needSms := <-smsNeeded
+	var checked bool
+	checked = false
+	if checked == false {
+		if needSms == "yes" {
+			waitNoSmsGroup.Done()
+			log.Print("need phone verification, continuing process.")
+			checked = true
+		}
 	}
-	log.Print("ran confirm email")
-	go user.smsVerification()
-	log.Print("ran sms go")
+
+	log.Print("socket go process created")
+	//time.Sleep(10*time.Second)
+
+	//
+	//log.Print("ran confirm email")
+	var smsConfirmed sync.WaitGroup
+
+	go user.smsVerification(smsConfirmed)
+	smsConfirmed.Wait()
+	log.Print("sms done, running email.")
+	var emailConfirmed sync.WaitGroup
+	time.Sleep(2 * time.Second)
+	go user.confirmEmail(emailConfirmed)
+	log.Print("email process created")
+
 	emailConfirmed.Wait()
+	log.Print("complete")
+	log.Print(user.auth.token)
 	user.writeAccount()
 
 }

@@ -4,10 +4,12 @@ import (
 	"github.com/go-resty/resty/v2"
 	"log"
 	"strings"
+	"sync"
 	"time"
 )
 
-func (user *User) smsVerification() {
+func (user *User) smsVerification(verification sync.WaitGroup) {
+	verification.Add(1)
 	user.smsApi = smsApi{
 		apiKey:  "***REMOVED***",
 		service: "ds",
@@ -23,6 +25,7 @@ func (user *User) smsVerification() {
 	code := user.getCode()
 
 	user.sendCodeToDiscord(code)
+	verification.Done()
 }
 
 type smsApi struct {
@@ -30,21 +33,22 @@ type smsApi struct {
 	country         int
 }
 
-func (user *User) getNumber() phoneObject {
+func (user *User) getNumber() PhoneNumber {
 	client := resty.New()
-	URLString := "http://sms-activate.ru/stubs/handler_api.php?api_key=" + user.smsApi.apiKey + "&action=getNumber&service=" + user.smsApi.service + "&country=" + string(user.smsApi.country)
+	URLString := "http://sms-activate.ru/stubs/handler_api.php?api_key=" + user.smsApi.apiKey + "&action=getNumber&service=" + user.smsApi.service + "&country=0"
 	resp, err := client.R().
 		Post(URLString)
 	if err != nil {
 		log.Print("Error getting phone number: ", err)
 	}
+	phoneSlice := strings.Split(resp.String(), ":")
 	object := PhoneNumber{
-		phoneNumber: strings.TrimLeft(resp.String(), ":"),
-		numberId:    strings.TrimRight(resp.String(), ":"),
+		phoneNumber: phoneSlice[2],
+		numberId:    phoneSlice[1],
 	}
 	user.PhoneNumber = object
 	log.Print("Phone Number: ", user.PhoneNumber.phoneNumber)
-	log.Print("Number ID: ", user.PhoneNumber.phoneNumber)
+	log.Print("Number ID: ", user.PhoneNumber.numberId)
 	return object
 
 }
@@ -81,6 +85,7 @@ func (user *User) notifyReady() {
 		log.Print("error notifying SMS api of being ready: ", err)
 	}
 }
+
 func (user *User) getCode() string {
 	URLString := "http://sms-activate.ru/stubs/handler_api.php?api_key=" + user.smsApi.apiKey + "&action=getStatus&status=1&id=" + user.PhoneNumber.numberId
 	client := resty.New()

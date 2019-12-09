@@ -77,13 +77,16 @@ func (user *User) openSocket(smsNeeded chan string) {
 			log.Printf("recv: %s", string(message))
 
 			requiredAction := gjson.Get(string(message), "d.required_action").String()
+
 			log.Print("requiredAction: ", requiredAction)
-			//if requiredAction == "REQUIRE_VERIFIED_PHONE" {
-			//log.Print("Error phone required")
-			//c.Close()
-			//
-			//
-			//}
+			if requiredAction == "REQUIRE_VERIFIED_PHONE" {
+				log.Print("phone required")
+				smsNeeded <- "yes"
+				log.Print("sent yes to channel")
+
+				//c.Close()
+
+			}
 			//log.Printf("recv: %s", message)
 
 		}
