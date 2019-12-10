@@ -93,39 +93,46 @@ func (user *User) init() {
 
 	user.register(registerWaitGroup)
 	registerWaitGroup.Wait()
-	var waitNoSmsGroup sync.WaitGroup
+	//var waitNoSmsGroup sync.WaitGroup
+	var writeAccount sync.WaitGroup
+
 	smsNeeded := make(chan string)
+	writeAccount.Add(1)
+	go user.confirmEmail(writeAccount)
+	log.Print("email process created")
 	go user.openSocket(smsNeeded)
-	waitNoSmsGroup.Add(1)
+	//waitNoSmsGroup.Add(1)
 	needSms := <-smsNeeded
 	var checked bool
-	checked = false
-	if checked == false {
-		if needSms == "yes" {
-			waitNoSmsGroup.Done()
-			log.Print("need phone verification, continuing process.")
-			checked = true
-		}
-	}
 
+	checked = false
+	log.Print("reached if statement")
+	if (checked == false) && (needSms == "yes") {
+
+		//waitNoSmsGroup.Done()
+		writeAccount.Add(1)
+		go user.smsVerification(writeAccount)
+		log.Print("need phone verification, continuing process.")
+		checked = true
+
+	}
+	log.Print("after if statement")
 	log.Print("socket go process created")
 	//time.Sleep(10*time.Second)
 
 	//
 	//log.Print("ran confirm email")
-	var smsConfirmed sync.WaitGroup
-
-	go user.smsVerification(smsConfirmed)
-	smsConfirmed.Wait()
-	log.Print("sms done, running email.")
-	var emailConfirmed sync.WaitGroup
+	//var smsConfirmed sync.WaitGroup
+	//
+	//smsConfirmed.Wait()
+	//log.Print("sms done, running email.")
 	time.Sleep(2 * time.Second)
-	go user.confirmEmail(emailConfirmed)
-	log.Print("email process created")
 
-	emailConfirmed.Wait()
+	log.Print(user.auth.token)
+	writeAccount.Wait()
 	log.Print("complete")
 	log.Print(user.auth.token)
+
 	user.writeAccount()
 
 }
@@ -191,7 +198,7 @@ func (user *User) register(complete sync.WaitGroup) {
 	client := resty.New()
 	client.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 	client.SetProxy(user.auth.proxy)
-
+	//todo: handle incorrect captcha
 	resp, err := client.R().
 		SetBody(realRegister).
 		SetHeaders(map[string]string{
@@ -273,14 +280,28 @@ func (user *User) getVerifyString() string {
 	parsedEmail, err := UnmarshalEmails(resp.Body())
 	rxRelaxed := xurls.Relaxed()
 	verifyUrl := rxRelaxed.FindString(parsedEmail[0].BodyText)
-	justVerifyKey := strings.Replace(verifyUrl, "https://discordapp.com/verify?token=", "", 1)
+	//resp, err := client.R().
+	//	Get(verifyUrl)
+	//if err != nil {
+	//	log.Print("error getting real VerifyURL: ", err)
+	//}
+	realVerifyResponse, getVerifyURLError := http.Get(verifyUrl)
+	if getVerifyURLError != nil {
+		log.Fatalf("error getting redirect: => %v", getVerifyURLError)
+	}
+
+	// Your magic function. The Request in the Response is the last URL the
+	// client tried to access.
+	realVerifyUrl := realVerifyResponse.Request.URL.String()
+
+	justVerifyKey := strings.Replace(realVerifyUrl, "https://discordapp.com/verify?token=", "", 1)
 	log.Print(justVerifyKey)
 	return justVerifyKey
 
 }
 
 func (user *User) confirmEmail(confirmedWait sync.WaitGroup) {
-	confirmedWait.Add(1)
+	//confirmedWait.Add(1)
 	time.Sleep(5 * time.Second)
 	verifyString := user.getVerifyString()
 	initialPayload := new(EmailVerify)

@@ -9,7 +9,7 @@ import (
 )
 
 func (user *User) smsVerification(verification sync.WaitGroup) {
-	verification.Add(1)
+	//verification.Add(1)
 	user.smsApi = smsApi{
 		apiKey:  "***REMOVED***",
 		service: "ds",
@@ -17,11 +17,11 @@ func (user *User) smsVerification(verification sync.WaitGroup) {
 	}
 
 	user.getNumber()
-	//todo: submit number to discord.
+	//submit number to discord.
 	user.sendPhoneToDiscord()
-	//todo: notify sms-activate.ru that number is ready.
+	//notify sms-activate.ru that number is ready.
 	user.notifyReady()
-	//todo: get code from sms msg
+	//get code from sms msg
 	code := user.getCode()
 
 	user.sendCodeToDiscord(code)
