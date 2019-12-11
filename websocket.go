@@ -87,6 +87,12 @@ func (user *User) openSocket(smsNeeded chan string) {
 				//c.Close()
 
 			}
+			verifiedTrue := gjson.Get(string(message), "d.verified").String()
+			log.Print("verifiedTrue: ", verifiedTrue)
+			if verifiedTrue == "true" {
+				log.Print("verified is needed")
+				smsNeeded <- "verified"
+			}
 			//log.Printf("recv: %s", message)
 
 		}

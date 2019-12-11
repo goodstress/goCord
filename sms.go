@@ -18,10 +18,13 @@ func (user *User) smsVerification(verification sync.WaitGroup) {
 
 	user.getNumber()
 	//submit number to discord.
+	log.Print("sending phone to discord")
 	user.sendPhoneToDiscord()
 	//notify sms-activate.ru that number is ready.
+	log.Print("notifying SMS service number is ready")
 	user.notifyReady()
 	//get code from sms msg
+	log.Print("attempting to grab sms code")
 	code := user.getCode()
 
 	user.sendCodeToDiscord(code)

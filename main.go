@@ -97,10 +97,12 @@ func (user *User) init() {
 	var writeAccount sync.WaitGroup
 
 	smsNeeded := make(chan string)
-	writeAccount.Add(1)
-	go user.confirmEmail(writeAccount)
+
 	log.Print("email process created")
 	go user.openSocket(smsNeeded)
+	writeAccount.Add(1)
+	time.Sleep(20)
+	go user.confirmEmail(writeAccount)
 	//waitNoSmsGroup.Add(1)
 	needSms := <-smsNeeded
 	var checked bool
@@ -112,9 +114,16 @@ func (user *User) init() {
 		//waitNoSmsGroup.Done()
 		writeAccount.Add(1)
 		go user.smsVerification(writeAccount)
-		log.Print("need phone verification, continuing process.")
+		//log.Print("need phone verification, continuing process.")
 		checked = true
+		//writeAccount.Done()
 
+	}
+	if needSms == "verified" {
+		log.Print("detected verified message")
+		log.Print("writing account")
+		user.writeAccount()
+		log.Print("finished writing account")
 	}
 	log.Print("after if statement")
 	log.Print("socket go process created")
@@ -133,7 +142,7 @@ func (user *User) init() {
 	log.Print("complete")
 	log.Print(user.auth.token)
 
-	user.writeAccount()
+	//user.writeAccount()
 
 }
 
@@ -295,14 +304,14 @@ func (user *User) getVerifyString() string {
 	realVerifyUrl := realVerifyResponse.Request.URL.String()
 
 	justVerifyKey := strings.Replace(realVerifyUrl, "https://discordapp.com/verify?token=", "", 1)
-	log.Print(justVerifyKey)
+	log.Print("email verification key: ", justVerifyKey)
 	return justVerifyKey
 
 }
 
 func (user *User) confirmEmail(confirmedWait sync.WaitGroup) {
-	//confirmedWait.Add(1)
-	time.Sleep(5 * time.Second)
+	confirmedWait.Add(1)
+	time.Sleep(20 * time.Second)
 	verifyString := user.getVerifyString()
 	initialPayload := new(EmailVerify)
 	initialPayload.Token = verifyString

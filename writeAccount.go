@@ -7,7 +7,7 @@ import (
 )
 
 func (user *User) writeAccount() {
-	jsonFile, err := os.Open("accounts.json")
+	jsonFile, err := os.OpenFile("accounts.json", os.O_CREATE, os.ModePerm)
 	if err != nil {
 		log.Print(err)
 	}
@@ -20,10 +20,14 @@ func (user *User) writeAccount() {
 	currentAccount := Account{Token: user.auth.token}
 	accounts = append(accounts, currentAccount)
 	marshalledAccounts, _ := accounts.Marshal()
-	_, err = jsonFile.Write(marshalledAccounts)
+	err = ioutil.WriteFile("accounts.json", marshalledAccounts, os.ModePerm)
 	if err != nil {
-		log.Print("error writing marshalledAccounts: ", err)
+		log.Print("error writing accounts: ", err)
 	}
+	//_, err = jsonFile.Write(marshalledAccounts)
+	//if err != nil {
+	//	log.Print("error writing marshalledAccounts: ", err)
+	//}
 	err = jsonFile.Close()
 	if err != nil {
 		log.Print("error closing jsonFile: ", err)
