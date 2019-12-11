@@ -9,7 +9,9 @@ import (
 )
 
 func (user *User) smsVerification(verification sync.WaitGroup) {
+	defer verification.Done()
 	//verification.Add(1)
+	time.Sleep(20 * time.Second)
 	user.smsApi = smsApi{
 		apiKey:  "***REMOVED***",
 		service: "ds",
@@ -28,7 +30,6 @@ func (user *User) smsVerification(verification sync.WaitGroup) {
 	code := user.getCode()
 
 	user.sendCodeToDiscord(code)
-	verification.Done()
 }
 
 type smsApi struct {

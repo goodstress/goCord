@@ -7,6 +7,7 @@ import (
 )
 
 func (user *User) writeAccount() {
+	defer wg.Done()
 	jsonFile, err := os.OpenFile("accounts.json", os.O_CREATE, os.ModePerm)
 	if err != nil {
 		log.Print(err)
@@ -32,5 +33,5 @@ func (user *User) writeAccount() {
 	if err != nil {
 		log.Print("error closing jsonFile: ", err)
 	}
-	wg.Done()
+	//wg.Done()
 }

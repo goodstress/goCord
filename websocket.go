@@ -92,6 +92,7 @@ func (user *User) openSocket(smsNeeded chan string) {
 			if verifiedTrue == "true" {
 				log.Print("verified is needed")
 				smsNeeded <- "verified"
+				go user.writeAccount()
 			}
 			//log.Printf("recv: %s", message)
 

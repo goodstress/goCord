@@ -100,7 +100,7 @@ func (user *User) init() {
 
 	log.Print("email process created")
 	go user.openSocket(smsNeeded)
-	writeAccount.Add(1)
+	writeAccount.Add(2)
 	time.Sleep(20)
 	go user.confirmEmail(writeAccount)
 	//waitNoSmsGroup.Add(1)
@@ -110,7 +110,7 @@ func (user *User) init() {
 	checked = false
 	log.Print("reached if statement")
 	if (checked == false) && (needSms == "yes") {
-
+		log.Print("ran SMS verification from IF statement")
 		//waitNoSmsGroup.Done()
 		writeAccount.Add(1)
 		go user.smsVerification(writeAccount)
@@ -122,7 +122,7 @@ func (user *User) init() {
 	if needSms == "verified" {
 		log.Print("detected verified message")
 		log.Print("writing account")
-		user.writeAccount()
+		go user.writeAccount()
 		log.Print("finished writing account")
 	}
 	log.Print("after if statement")
@@ -199,6 +199,7 @@ func (user *User) genUserAgent() {
 // }
 
 func (user *User) register(complete sync.WaitGroup) {
+	defer complete.Done()
 	complete.Add(1)
 	captcha := user.NewKey()
 	log.Print("captcha: ", captcha)
@@ -226,7 +227,7 @@ func (user *User) register(complete sync.WaitGroup) {
 	token := gjson.Get(resp.String(), "token").String()
 	user.auth.token = token
 	log.Println("set token in user to: ", token)
-	complete.Done()
+	//complete.Done()
 
 }
 
@@ -310,7 +311,8 @@ func (user *User) getVerifyString() string {
 }
 
 func (user *User) confirmEmail(confirmedWait sync.WaitGroup) {
-	confirmedWait.Add(1)
+	defer confirmedWait.Done()
+	//confirmedWait.Add(1)
 	time.Sleep(20 * time.Second)
 	verifyString := user.getVerifyString()
 	initialPayload := new(EmailVerify)
@@ -392,7 +394,7 @@ func (user *User) confirmEmail(confirmedWait sync.WaitGroup) {
 	user.auth.token = gjson.Get(verifyWithCaptcha.String(), "token").String()
 	log.Print(verifyWithCaptcha.String())
 
-	confirmedWait.Done()
+	//confirmedWait.Done()
 
 }
 
