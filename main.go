@@ -110,10 +110,10 @@ func (user *User) init() {
 	checked = false
 	log.Print("reached if statement")
 	if (checked == false) && (needSms == "yes") {
-		log.Print("ran SMS verification from IF statement")
+		log.Print("ERROR SMS NEEDED CLOSING")
 		//waitNoSmsGroup.Done()
-		writeAccount.Add(1)
-		go user.smsVerification(&writeAccount)
+		wg.Done()
+		//go user.smsVerification(&writeAccount)
 		//log.Print("need phone verification, continuing process.")
 		checked = true
 		//writeAccount.Done()
@@ -141,6 +141,7 @@ func (user *User) init() {
 	writeAccount.Wait()
 	log.Print("complete")
 	log.Print(user.auth.token)
+	wg.Done()
 
 	//user.writeAccount()
 

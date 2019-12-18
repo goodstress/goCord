@@ -10,8 +10,9 @@ import (
 	"github.com/tidwall/gjson"
 )
 
+var configuration = config{apikey: "***REMOVED***", googlekey: "***REMOVED***", siteurl: "discordapp.com"}
+
 func (user *User) NewKey() string {
-	configuration := config{apikey: "***REMOVED***", googlekey: "***REMOVED***", siteurl: "discordapp.com"}
 
 	captchaID := newSolve(configuration.apikey, configuration.googlekey, configuration.siteurl)
 	log.Println("solveTest: ", captchaID)
@@ -68,6 +69,11 @@ func getSolve(apiKey string, id string) string {
 				return ""
 			}
 			log.Println(resp.String())
+			errorMsg := gjson.Get(resp.String(), "request")
+			if errorMsg.String() == "ERROR_CAPTCHA_UNSOLVABLE" {
+				id = newSolve(configuration.apikey, configuration.googlekey, configuration.siteurl)
+
+			}
 			if gjson.Get(resp.String(), "status").Int() != 1 {
 				log.Println("not ready")
 
