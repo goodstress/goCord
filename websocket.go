@@ -3,6 +3,8 @@ package main
 import (
 	"crypto/tls"
 	"github.com/gorilla/websocket"
+	"github.com/tidwall/gjson"
+	"sync"
 	"time"
 
 	//"github.com/tidwall/gjson"
@@ -18,14 +20,14 @@ import (
 //
 //}
 
-func (user *User) openSocket() {
+func (user *User) openSocket(smsNeeded chan string, wg *sync.WaitGroup) {
+	//defer wg.Done()
 	log.Print("in websocket function")
 	user.CreateOpenMsg()
 	log.Print("open msg created")
 	host := user.auth.hostname
 	log.Print(host)
 	var proxyDialer = websocket.Dialer{
-
 		Proxy: http.ProxyURL(&url.URL{
 
 			Scheme: "http", // or "https" depending on your proxy,
@@ -76,14 +78,25 @@ func (user *User) openSocket() {
 			}
 			log.Printf("recv: %s", string(message))
 
-			//requiredAction := gjson.Get(string(message), "d.required_action").String()
-			//log.Print("requiredAction: ", requiredAction)
-			//if requiredAction == "REQUIRE_VERIFIED_PHONE" {
-			//log.Print("Error phone required")
-			//c.Close()
-			//
-			//
-			//}
+			requiredAction := gjson.Get(string(message), "d.required_action").String()
+
+			log.Print("requiredAction: ", requiredAction)
+			if requiredAction == "REQUIRE_VERIFIED_PHONE" {
+				log.Print("phone required")
+				smsNeeded <- "yes"
+				log.Print("sent yes to channel")
+
+				//c.Close()
+
+			}
+			verifiedTrue := gjson.Get(string(message), "d.verified").String()
+			log.Print("verifiedTrue: ", verifiedTrue)
+			if verifiedTrue == "true" {
+				log.Print("verified is done")
+				smsNeeded <- "verified"
+				wg.Add(1)
+				go user.writeAccount(wg)
+			}
 			//log.Printf("recv: %s", message)
 
 		}

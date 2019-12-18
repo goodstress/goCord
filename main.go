@@ -3,9 +3,7 @@ package main
 import (
 	"crypto/tls"
 	b64 "encoding/base64"
-	"github.com/briandowns/spinner"
 	"github.com/bxcodec/faker/v3"
-	"github.com/corpix/uarand"
 	"github.com/go-resty/resty/v2"
 	"github.com/mssola/user_agent"
 	"github.com/thanhpk/randstr"
@@ -80,11 +78,11 @@ func (user *User) init() {
 	user.GrabCloudflare()
 
 	user.GrabFingerprint()
-	s := spinner.New(spinner.CharSets[38], 100*time.Millisecond) // Build our new spinner
-	s.Prefix = "Waiting 90 seconds for fingerprint: "
-	s.Start() // Start the spinner
-	time.Sleep(90 * time.Second)
-	s.Stop()
+	//s := spinner.New(spinner.CharSets[38], 100*time.Millisecond) // Build our new spinner
+	//s.Prefix = "Waiting 90 seconds for fingerprint: "
+	//s.Start() // Start the spinner
+	//time.Sleep(90 * time.Second)
+	//s.Stop()
 	//setUsername
 	//create superProp
 	user.createSuperProp()
@@ -92,24 +90,59 @@ func (user *User) init() {
 	user.GenEmail()
 	var registerWaitGroup sync.WaitGroup
 
-	user.register(registerWaitGroup)
+	user.register(&registerWaitGroup)
 	registerWaitGroup.Wait()
 	//var waitNoSmsGroup sync.WaitGroup
-	//smsNeeded := make(chan string)
-	go user.openSocket()
-	log.Print("socket go process created")
-	var emailConfirmed sync.WaitGroup
-	time.Sleep(20 * time.Second)
-	go user.confirmEmail(emailConfirmed)
+	var writeAccount sync.WaitGroup
+
+	smsNeeded := make(chan string)
 
 	log.Print("email process created")
-	msgSmsNeeded := <-smsNeeded
-	if msgSmsNeeded == "not" {
-		log.Print("sms not needed")
+	//writeAccount.Add(1)
+	go user.openSocket(smsNeeded, &wg)
+	writeAccount.Add(2)
+	time.Sleep(20)
+	go user.confirmEmail(&writeAccount)
+	//waitNoSmsGroup.Add(1)
+	needSms := <-smsNeeded
+	var checked bool
+
+	checked = false
+	log.Print("reached if statement")
+	if (checked == false) && (needSms == "yes") {
+		log.Print("ran SMS verification from IF statement")
+		//waitNoSmsGroup.Done()
+		writeAccount.Add(1)
+		go user.smsVerification(&writeAccount)
+		//log.Print("need phone verification, continuing process.")
+		checked = true
+		//writeAccount.Done()
+
 	}
-	log.Print("ran confirm email")
-	emailConfirmed.Wait()
-	user.writeAccount()
+	if needSms == "verified" {
+		log.Print("detected verified message")
+		log.Print("writing account")
+		go user.writeAccount(&writeAccount)
+		log.Print("finished writing account")
+	}
+	log.Print("after if statement")
+	log.Print("socket go process created")
+	//time.Sleep(10*time.Second)
+
+	//
+	//log.Print("ran confirm email")
+	//var smsConfirmed sync.WaitGroup
+	//
+	//smsConfirmed.Wait()
+	//log.Print("sms done, running email.")
+	time.Sleep(2 * time.Second)
+
+	log.Print(user.auth.token)
+	writeAccount.Wait()
+	log.Print("complete")
+	log.Print(user.auth.token)
+
+	//user.writeAccount()
 
 }
 
@@ -152,10 +185,9 @@ func (user *User) createSuperProp() {
 //}
 func (user *User) genUserAgent() {
 	//noinspection ALL
-	agent := uarand.GetRandom()
 	//agent := "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36"
-	user.auth.userAgent = agent
-	log.Println("Set useragent to: ", agent)
+	user.auth.userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36"
+	log.Println("Set useragent to: ", user.auth.userAgent)
 }
 
 // func superProp(agent string) string {
@@ -165,7 +197,8 @@ func (user *User) genUserAgent() {
 
 // }
 
-func (user *User) register(complete sync.WaitGroup) {
+func (user *User) register(complete *sync.WaitGroup) {
+	defer complete.Done()
 	complete.Add(1)
 	captcha := user.NewKey()
 	log.Print("captcha: ", captcha)
@@ -174,7 +207,7 @@ func (user *User) register(complete sync.WaitGroup) {
 	client := resty.New()
 	client.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 	client.SetProxy(user.auth.proxy)
-
+	//todo: handle incorrect captcha
 	resp, err := client.R().
 		SetBody(realRegister).
 		SetHeaders(map[string]string{
@@ -193,7 +226,7 @@ func (user *User) register(complete sync.WaitGroup) {
 	token := gjson.Get(resp.String(), "token").String()
 	user.auth.token = token
 	log.Println("set token in user to: ", token)
-	complete.Done()
+	//complete.Done()
 
 }
 
@@ -247,6 +280,7 @@ func (user *User) getVerifyString() string {
 	client := resty.New()
 	client.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 	client.SetProxy(user.auth.proxy)
+	client.SetHeader("User-Agent", user.auth.userAgent)
 	time.Sleep(4 * time.Second)
 	resp, err := client.R().
 		Get(fullCheckUrl)
@@ -256,15 +290,31 @@ func (user *User) getVerifyString() string {
 	parsedEmail, err := UnmarshalEmails(resp.Body())
 	rxRelaxed := xurls.Relaxed()
 	verifyUrl := rxRelaxed.FindString(parsedEmail[0].BodyText)
-	justVerifyKey := strings.Replace(verifyUrl, "https://discordapp.com/verify?token=", "", 1)
-	log.Print(justVerifyKey)
+	//resp, err := client.R().
+	//	Get(verifyUrl)
+	//if err != nil {
+	//	log.Print("error getting real VerifyURL: ", err)
+	//}
+	realVerifyResponse, getVerifyURLError := client.R().
+		Get(verifyUrl)
+	if getVerifyURLError != nil {
+		log.Fatalf("error getting redirect: => %v", getVerifyURLError)
+	}
+
+	// Your magic function. The Request in the Response is the last URL the
+	// client tried to access.
+	realVerifyUrl := realVerifyResponse.RawResponse.Request.URL.String()
+
+	justVerifyKey := strings.Replace(realVerifyUrl, "https://discordapp.com/verify?token=", "", 1)
+	log.Print("email verification key: ", justVerifyKey)
 	return justVerifyKey
 
 }
 
-func (user *User) confirmEmail(confirmedWait sync.WaitGroup) {
-	confirmedWait.Add(1)
-	time.Sleep(5 * time.Second)
+func (user *User) confirmEmail(confirmedWait *sync.WaitGroup) {
+	defer confirmedWait.Done()
+	//confirmedWait.Add(1)
+	time.Sleep(20 * time.Second)
 	verifyString := user.getVerifyString()
 	initialPayload := new(EmailVerify)
 	initialPayload.Token = verifyString
@@ -345,7 +395,7 @@ func (user *User) confirmEmail(confirmedWait sync.WaitGroup) {
 	user.auth.token = gjson.Get(verifyWithCaptcha.String(), "token").String()
 	log.Print(verifyWithCaptcha.String())
 
-	confirmedWait.Done()
+	//confirmedWait.Done()
 
 }
 
@@ -368,13 +418,17 @@ type auth struct {
 	cookies                                                                []*http.Cookie
 	OpenMsg                                                                []byte
 }
-
+type PhoneNumber struct {
+	phoneNumber, numberId string
+}
 type userDetails struct {
 	username, password, email string
 }
 
 // User Struct that defines the user
 type User struct {
-	details userDetails
-	auth    auth
+	details     userDetails
+	auth        auth
+	PhoneNumber PhoneNumber
+	smsApi      smsApi
 }

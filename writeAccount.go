@@ -4,10 +4,13 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"sync"
 )
 
-func (user *User) writeAccount() {
-	jsonFile, err := os.Open("accounts.json")
+func (user *User) writeAccount(wg *sync.WaitGroup) {
+	defer wg.Done()
+	log.Print("writing account")
+	jsonFile, err := os.OpenFile("accounts.json", os.O_CREATE, os.ModePerm)
 	if err != nil {
 		log.Print(err)
 	}
@@ -15,12 +18,22 @@ func (user *User) writeAccount() {
 	var accounts Accounts
 	accounts, err = UnmarshalAccounts(byteValue)
 	if err != nil {
-		log.Print(err)
+		log.Print("error on UnmarshalAccounts to accounts: ", err)
 	}
 	currentAccount := Account{Token: user.auth.token}
 	accounts = append(accounts, currentAccount)
 	marshalledAccounts, _ := accounts.Marshal()
-	_, _ = jsonFile.Write(marshalledAccounts)
-	_ = jsonFile.Close()
-wg.Done()
+	err = ioutil.WriteFile("accounts.json", marshalledAccounts, os.ModePerm)
+	if err != nil {
+		log.Print("error writing accounts: ", err)
+	}
+	//_, err = jsonFile.Write(marshalledAccounts)
+	//if err != nil {
+	//	log.Print("error writing marshalledAccounts: ", err)
+	//}
+	err = jsonFile.Close()
+	if err != nil {
+		log.Print("error closing jsonFile: ", err)
+	}
+	//wg.Done()
 }

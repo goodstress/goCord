@@ -3,6 +3,7 @@ module github.com/viewratio/goCord
 go 1.12
 
 require (
+	github.com/briandowns/spinner v1.8.0
 	github.com/bxcodec/faker/v3 v3.1.0
 	github.com/corpix/uarand v0.1.1
 	github.com/go-resty/resty/v2 v2.1.0
