@@ -295,14 +295,15 @@ func (user *User) getVerifyString() string {
 	//if err != nil {
 	//	log.Print("error getting real VerifyURL: ", err)
 	//}
-	realVerifyResponse, getVerifyURLError := http.Get(verifyUrl)
+	realVerifyResponse, getVerifyURLError := client.R().
+		Get(verifyUrl)
 	if getVerifyURLError != nil {
 		log.Fatalf("error getting redirect: => %v", getVerifyURLError)
 	}
 
 	// Your magic function. The Request in the Response is the last URL the
 	// client tried to access.
-	realVerifyUrl := realVerifyResponse.Request.URL.String()
+	realVerifyUrl := realVerifyResponse.RawResponse.Request.URL.String()
 
 	justVerifyKey := strings.Replace(realVerifyUrl, "https://discordapp.com/verify?token=", "", 1)
 	log.Print("email verification key: ", justVerifyKey)
