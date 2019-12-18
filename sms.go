@@ -8,8 +8,8 @@ import (
 	"time"
 )
 
-func (user *User) smsVerification(verification sync.WaitGroup) {
-	defer verification.Done()
+func (user *User) smsVerification(wg *sync.WaitGroup) {
+	defer wg.Done()
 	//verification.Add(1)
 	time.Sleep(20 * time.Second)
 	user.smsApi = smsApi{

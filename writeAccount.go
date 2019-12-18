@@ -4,10 +4,12 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"sync"
 )
 
-func (user *User) writeAccount() {
+func (user *User) writeAccount(wg *sync.WaitGroup) {
 	defer wg.Done()
+	log.Print("writing account")
 	jsonFile, err := os.OpenFile("accounts.json", os.O_CREATE, os.ModePerm)
 	if err != nil {
 		log.Print(err)

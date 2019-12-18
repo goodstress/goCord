@@ -4,7 +4,6 @@ import (
 	"crypto/tls"
 	b64 "encoding/base64"
 	"github.com/bxcodec/faker/v3"
-	"github.com/corpix/uarand"
 	"github.com/go-resty/resty/v2"
 	"github.com/mssola/user_agent"
 	"github.com/thanhpk/randstr"
@@ -91,7 +90,7 @@ func (user *User) init() {
 	user.GenEmail()
 	var registerWaitGroup sync.WaitGroup
 
-	user.register(registerWaitGroup)
+	user.register(&registerWaitGroup)
 	registerWaitGroup.Wait()
 	//var waitNoSmsGroup sync.WaitGroup
 	var writeAccount sync.WaitGroup
@@ -99,10 +98,11 @@ func (user *User) init() {
 	smsNeeded := make(chan string)
 
 	log.Print("email process created")
-	go user.openSocket(smsNeeded)
+	//writeAccount.Add(1)
+	go user.openSocket(smsNeeded, &wg)
 	writeAccount.Add(2)
 	time.Sleep(20)
-	go user.confirmEmail(writeAccount)
+	go user.confirmEmail(&writeAccount)
 	//waitNoSmsGroup.Add(1)
 	needSms := <-smsNeeded
 	var checked bool
@@ -113,7 +113,7 @@ func (user *User) init() {
 		log.Print("ran SMS verification from IF statement")
 		//waitNoSmsGroup.Done()
 		writeAccount.Add(1)
-		go user.smsVerification(writeAccount)
+		go user.smsVerification(&writeAccount)
 		//log.Print("need phone verification, continuing process.")
 		checked = true
 		//writeAccount.Done()
@@ -122,7 +122,7 @@ func (user *User) init() {
 	if needSms == "verified" {
 		log.Print("detected verified message")
 		log.Print("writing account")
-		go user.writeAccount()
+		go user.writeAccount(&writeAccount)
 		log.Print("finished writing account")
 	}
 	log.Print("after if statement")
@@ -185,10 +185,9 @@ func (user *User) createSuperProp() {
 //}
 func (user *User) genUserAgent() {
 	//noinspection ALL
-	agent := uarand.GetRandom()
 	//agent := "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36"
-	user.auth.userAgent = agent
-	log.Println("Set useragent to: ", agent)
+	user.auth.userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36"
+	log.Println("Set useragent to: ", user.auth.userAgent)
 }
 
 // func superProp(agent string) string {
@@ -198,7 +197,7 @@ func (user *User) genUserAgent() {
 
 // }
 
-func (user *User) register(complete sync.WaitGroup) {
+func (user *User) register(complete *sync.WaitGroup) {
 	defer complete.Done()
 	complete.Add(1)
 	captcha := user.NewKey()
@@ -312,7 +311,7 @@ func (user *User) getVerifyString() string {
 
 }
 
-func (user *User) confirmEmail(confirmedWait sync.WaitGroup) {
+func (user *User) confirmEmail(confirmedWait *sync.WaitGroup) {
 	defer confirmedWait.Done()
 	//confirmedWait.Add(1)
 	time.Sleep(20 * time.Second)

@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"github.com/gorilla/websocket"
 	"github.com/tidwall/gjson"
+	"sync"
 	"time"
 
 	//"github.com/tidwall/gjson"
@@ -19,7 +20,8 @@ import (
 //
 //}
 
-func (user *User) openSocket(smsNeeded chan string) {
+func (user *User) openSocket(smsNeeded chan string, wg *sync.WaitGroup) {
+	//defer wg.Done()
 	log.Print("in websocket function")
 	user.CreateOpenMsg()
 	log.Print("open msg created")
@@ -90,9 +92,10 @@ func (user *User) openSocket(smsNeeded chan string) {
 			verifiedTrue := gjson.Get(string(message), "d.verified").String()
 			log.Print("verifiedTrue: ", verifiedTrue)
 			if verifiedTrue == "true" {
-				log.Print("verified is needed")
+				log.Print("verified is done")
 				smsNeeded <- "verified"
-				go user.writeAccount()
+				wg.Add(1)
+				go user.writeAccount(wg)
 			}
 			//log.Printf("recv: %s", message)
 
