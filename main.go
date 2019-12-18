@@ -281,6 +281,7 @@ func (user *User) getVerifyString() string {
 	client := resty.New()
 	client.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 	client.SetProxy(user.auth.proxy)
+	client.SetHeader("User-Agent", user.auth.userAgent)
 	time.Sleep(4 * time.Second)
 	resp, err := client.R().
 		Get(fullCheckUrl)
