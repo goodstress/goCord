@@ -208,6 +208,7 @@ func (user *User) register(complete *sync.WaitGroup) {
 	client := resty.New()
 	client.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 	client.SetProxy(user.auth.proxy)
+	client.SetCookies(user.auth.cookies)
 	//todo: handle incorrect captcha
 	resp, err := client.R().
 		SetBody(realRegister).
@@ -224,6 +225,8 @@ func (user *User) register(complete *sync.WaitGroup) {
 		log.Println(err)
 	}
 	log.Print(resp.String())
+	user.auth.cookies = resp.Cookies()
+
 	token := gjson.Get(resp.String(), "token").String()
 	user.auth.token = token
 	log.Println("set token in user to: ", token)
@@ -393,7 +396,6 @@ func (user *User) confirmEmail(confirmedWait *sync.WaitGroup) {
 	}
 
 	//set user token
-	user.auth.token = gjson.Get(verifyWithCaptcha.String(), "token").String()
 	log.Print(verifyWithCaptcha.String())
 
 	//confirmedWait.Done()
