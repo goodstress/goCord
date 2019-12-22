@@ -57,13 +57,13 @@ func (user *User) openSocket(smsNeeded chan string, wg *sync.WaitGroup) {
 
 	//defer c.Close()
 
-	done := make(chan struct{})
+	//done := make(chan struct{})
 	//_ = c.WriteMessage(websocket.TextMessage, user.auth.OpenMsg)
 
 	heartbeat := time.NewTicker(39000 * time.Millisecond)
 
 	go func() {
-		defer close(done)
+		defer c.Close()
 		//smsTicker := time.NewTicker(20*time.Second)
 		//sendOpen := time.NewTicker(5*time.Second)
 		for {
@@ -73,7 +73,9 @@ func (user *User) openSocket(smsNeeded chan string, wg *sync.WaitGroup) {
 			//
 			//}
 			_, message, err := c.ReadMessage()
+
 			if err != nil {
+				break
 				log.Println("read:", err)
 			}
 			log.Printf("recv: %s", string(message))
@@ -104,7 +106,10 @@ func (user *User) openSocket(smsNeeded chan string, wg *sync.WaitGroup) {
 	}()
 
 	go func() {
-		defer close(done)
+		defer func() {
+			heartbeat.Stop()
+			c.Close()
+		}()
 		//smsTicker := time.NewTicker(20*time.Second)
 		//sendOpen := time.NewTicker(5*time.Second)
 		for {
