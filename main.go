@@ -186,8 +186,10 @@ func (user *User) createSuperProp() {
 //}
 func (user *User) genUserAgent() {
 	//noinspection ALL
+	//todo implement pulling of random useragent from slice that is loaded from text file.
 	//agent := "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36"
-	user.auth.userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36"
+	user.auth.userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.88 Safari/537.36"
+	//user.auth.userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36"
 	log.Println("Set useragent to: ", user.auth.userAgent)
 }
 
@@ -224,12 +226,28 @@ func (user *User) register(complete *sync.WaitGroup) {
 	if err != nil {
 		log.Println(err)
 	}
+	if resp.String() == `{"captcha_key": ["incorrect-captcha-sol"]}` {
+
+		wg.Done()
+	}
+	if resp.String() == `{"token": ["Invalid token"]}` {
+		log.Print("critical error, exiting")
+		wg.Done()
+	}
+	token := gjson.Get(resp.String(), "token").String()
+
+	if len(token) == 0 {
+		log.Print("token not found, exiting")
+	}
+
 	log.Print(resp.String())
 	user.auth.cookies = resp.Cookies()
 
-	token := gjson.Get(resp.String(), "token").String()
 	user.auth.token = token
 	log.Println("set token in user to: ", token)
+	//if len(token) > 0 {
+	//
+	//}
 	//complete.Done()
 
 }
@@ -244,7 +262,7 @@ func (user *User) GenEmail() string {
 	_, err := client.R().
 		SetBody(`{"min_name_length": 10,"max_name_length": 10}`).
 		SetHeaders(map[string]string{
-			"User-Agent":      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.14; rv:69.0) Gecko/20100101 Firefox/69.0",
+			"User-Agent":      user.auth.userAgent,
 			"Accept":          "application/json, text/plain, */*",
 			"Accept-Language": "en-US,en;q=0.5",
 			"Content-Type":    "application/json;charset=utf-8",
@@ -279,40 +297,52 @@ func (user *User) GenEmail() string {
 }
 
 func (user *User) getVerifyString() string {
+	client, parsedEmail := user.checkEmail()
+	if len(parsedEmail) == 0 {
+		time.Sleep(10 * time.Second)
+		client, parsedEmail = user.checkEmail()
+	} else {
+		rxRelaxed := xurls.Relaxed()
+		verifyUrl := rxRelaxed.FindString(parsedEmail[0].BodyText)
+		realVerifyResponse, getVerifyURLError := client.R().
+			Get(verifyUrl)
+		if getVerifyURLError != nil {
+			log.Fatalf("error getting redirect: => %v", getVerifyURLError)
+		}
+		realVerifyUrl := realVerifyResponse.RawResponse.Request.URL.String()
+
+		justVerifyKey := strings.Replace(realVerifyUrl, "https://discordapp.com/verify?token=", "", 1)
+		log.Print("email verification key: ", justVerifyKey)
+		return justVerifyKey
+	}
+
+	//resp, err := client.R().
+	//	Get(verifyUrl)
+	//if err != nil {
+	//	log.Print("error getting real VerifyURL: ", err)
+	//}
+
+	// Your magic function. The Request in the Response is the last URL the
+	// client tried to access.
+
+	return ""
+}
+
+func (user *User) checkEmail() (*resty.Client, Emails) {
 	checkEmail := "https://api.internal.temp-mail.io/api/v2/email/replaceThis/messages"
 	fullCheckUrl := strings.Replace(checkEmail, "replaceThis", user.details.email, 1)
 	client := resty.New()
 	client.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 	client.SetProxy(user.auth.proxy)
 	client.SetHeader("User-Agent", user.auth.userAgent)
-	time.Sleep(4 * time.Second)
+	time.Sleep(20 * time.Second)
 	resp, err := client.R().
 		Get(fullCheckUrl)
 	if err != nil {
 		log.Print(err)
 	}
 	parsedEmail, err := UnmarshalEmails(resp.Body())
-	rxRelaxed := xurls.Relaxed()
-	verifyUrl := rxRelaxed.FindString(parsedEmail[0].BodyText)
-	//resp, err := client.R().
-	//	Get(verifyUrl)
-	//if err != nil {
-	//	log.Print("error getting real VerifyURL: ", err)
-	//}
-	realVerifyResponse, getVerifyURLError := client.R().
-		Get(verifyUrl)
-	if getVerifyURLError != nil {
-		log.Fatalf("error getting redirect: => %v", getVerifyURLError)
-	}
-
-	// Your magic function. The Request in the Response is the last URL the
-	// client tried to access.
-	realVerifyUrl := realVerifyResponse.RawResponse.Request.URL.String()
-
-	justVerifyKey := strings.Replace(realVerifyUrl, "https://discordapp.com/verify?token=", "", 1)
-	log.Print("email verification key: ", justVerifyKey)
-	return justVerifyKey
-
+	return client, parsedEmail
 }
 
 func (user *User) confirmEmail(confirmedWait *sync.WaitGroup) {
@@ -393,6 +423,10 @@ func (user *User) confirmEmail(confirmedWait *sync.WaitGroup) {
 	if err != nil {
 		log.Print("error occurred")
 		log.Print(err)
+	}
+	if verifyWithCaptcha.String() == `{"captcha_key": ["incorrect-captcha-sol"]}` {
+		log.Print("exiting, captcha incorrect")
+		wg.Done()
 	}
 
 	//set user token

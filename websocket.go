@@ -72,6 +72,7 @@ func (user *User) openSocket(smsNeeded chan string, wg *sync.WaitGroup) {
 			//	smsNeeded<-"not"
 			//
 			//}
+
 			_, message, err := c.ReadMessage()
 
 			if err != nil {
@@ -123,6 +124,9 @@ func (user *User) openSocket(smsNeeded chan string, wg *sync.WaitGroup) {
 				err = c.WriteMessage(websocket.TextMessage, []byte(`{"op":1,"d":37}`))
 				if err != nil {
 					log.Print("writeHeartBeat error: ", err)
+					log.Print("exiting now......")
+					wg.Done()
+					break
 				}
 			}
 			//requiredAction := gjson.Get(string(message), "d.required_action").String()
