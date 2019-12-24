@@ -62,7 +62,7 @@ func createUser() {
 
 	log.Print("Proxy: ", user.auth.proxy)
 	user.genUserAgent()
-	//user.auth.userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36"
+	//user.Auth.userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36"
 	//noinspection SpellCheckingInspection
 	user.init()
 
@@ -172,9 +172,9 @@ func (user *User) createSuperProp() {
 
 //func (user *User) createXTrack() {
 //	var prop SuperProp
-//	ua := user_agent.New(user.auth.userAgent)
+//	ua := user_agent.New(user.Auth.userAgent)
 //	prop.Browser, prop.BrowserVersion = ua.Browser()
-//	prop.BrowserUserAgent = user.auth.userAgent
+//	prop.BrowserUserAgent = user.Auth.userAgent
 //	prop.OS = ua.OSInfo().Name
 //	prop.OSVersion = ua.OSInfo().Version
 //	prop.ClientBuildNumber = 9999
@@ -182,14 +182,14 @@ func (user *User) createSuperProp() {
 //	prop.Device, prop.Referrer, prop.ReferringDomain, prop.ReferringDomainCurrent, prop.ReferrerCurrent = "", "", "", "", ""
 //	prop.ReleaseChannel = "stable"
 //	//set superProp
-//	user.auth.Xtrack = prop
+//	user.Auth.Xtrack = prop
 //}
 func (user *User) genUserAgent() {
 	//noinspection ALL
 	//todo implement pulling of random useragent from slice that is loaded from text file.
 	//agent := "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36"
 	user.auth.userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.88 Safari/537.36"
-	//user.auth.userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36"
+	//user.Auth.userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36"
 	log.Println("Set useragent to: ", user.auth.userAgent)
 }
 
@@ -205,7 +205,7 @@ func (user *User) register(complete *sync.WaitGroup) {
 	complete.Add(1)
 	captcha := user.NewKey()
 	log.Print("captcha: ", captcha)
-	realRegister := RegPayload{Fingerprint: user.auth.fingerprint, Email: user.details.email, Username: user.details.username, Password: user.details.password, Invite: nil, Consent: true, GiftCodeSkuID: nil, CAPTCHAKey: captcha}
+	realRegister := RegPayload{Fingerprint: user.auth.fingerprint, Email: user.details.email, Username: user.details.username, Password: user.details.password, Invite: nil, Consent: true, GiftCodeSkuID: nil, CAPTCHAKey: user.auth.Captcha.captchaKey}
 	registerURL := "https://discordapp.com/api/v6/auth/register"
 	client := resty.New()
 	client.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
@@ -227,17 +227,20 @@ func (user *User) register(complete *sync.WaitGroup) {
 		log.Println(err)
 	}
 	if resp.String() == `{"captcha_key": ["incorrect-captcha-sol"]}` {
-
-		wg.Done()
+		user.badCaptcha()
+		user.register(complete)
+		//wg.Done()
 	}
 	if resp.String() == `{"token": ["Invalid token"]}` {
 		log.Print("critical error, exiting")
-		wg.Done()
+		//wg.Done()
 	}
 	token := gjson.Get(resp.String(), "token").String()
-
+	if len(token) > 1 {
+		user.goodCaptcha()
+	}
 	if len(token) == 0 {
-		log.Print("token not found, exiting")
+		log.Print("token not found")
 	}
 
 	log.Print(resp.String())
@@ -368,10 +371,10 @@ func (user *User) confirmEmail(confirmedWait *sync.WaitGroup) {
 	//	"authority":          "discordapp.com",
 	//	"pragma":             "no-cache",
 	//	"cache-control":      "no-cache",
-	//	"x-super-properties": user.auth.SuperProp,
-	//	"x-fingerprint":      user.auth.fingerprint,
+	//	"x-super-properties": user.Auth.SuperProp,
+	//	"x-fingerprint":      user.Auth.fingerprint,
 	//	"accept-language":    "en-US",
-	//	"user-agent":         user.auth.userAgent,
+	//	"user-agent":         user.Auth.userAgent,
 	//	"content-type":       "application/json",
 	//	"authorization":      "undefined",
 	//	"dnt":                "1",
@@ -381,7 +384,7 @@ func (user *User) confirmEmail(confirmedWait *sync.WaitGroup) {
 	//	"sec-fetch-mode":     "cors",
 	//	"referer":            referrer,
 	//	"accept-encoding":    "gzip, deflate, br",
-	//}).SetCookies(user.auth.cookies).
+	//}).SetCookies(user.Auth.cookies).
 	//	SetBody(initialMarshalled).
 	//	Post("https://discordapp.com/api/v6/auth/verify")
 	//if err != nil {
@@ -419,16 +422,20 @@ func (user *User) confirmEmail(confirmedWait *sync.WaitGroup) {
 			"accept-encoding":    "gzip, deflate, br",
 		}).SetCookies(user.auth.cookies).
 		SetBody(captchaMarshalled).
-		Post("https://discordapp.com/api/v6/auth/verify")
+		Post("https://discordapp.com/api/v6/Auth/verify")
 	if err != nil {
-		log.Print("error occurred")
-		log.Print(err)
+		log.Print("error occurred with verifyWithCaptcha: ", err)
 	}
 	if verifyWithCaptcha.String() == `{"captcha_key": ["incorrect-captcha-sol"]}` {
-		log.Print("exiting, captcha incorrect")
-		wg.Done()
+		log.Print("captcha incorrect")
+		user.badCaptcha()
+		user.confirmEmail(confirmedWait)
 	}
-
+	token := gjson.Get(verifyWithCaptcha.String(), "token").String()
+	if len(token) > 1 {
+		log.Print("captcha was good, reporting as good")
+		user.goodCaptcha()
+	}
 	//set user token
 	log.Print(verifyWithCaptcha.String())
 
@@ -450,22 +457,24 @@ type RegPayload struct {
 	CAPTCHAKey    string      `json:"captcha_key"`
 }
 
-type auth struct {
+type Auth struct {
 	fingerprint, cfuid, userAgent, token, proxy, SuperProp, hostname, user string
 	cookies                                                                []*http.Cookie
 	OpenMsg                                                                []byte
+	Captcha                                                                Captcha
 }
 type PhoneNumber struct {
 	phoneNumber, numberId string
 }
-type userDetails struct {
+type UserDetails struct {
 	username, password, email string
 }
 
 // User Struct that defines the user
 type User struct {
-	details     userDetails
-	auth        auth
-	PhoneNumber PhoneNumber
-	smsApi      smsApi
+	details       UserDetails
+	auth          Auth
+	PhoneNumber   PhoneNumber
+	smsApi        smsApi
+	captchaConfig config
 }

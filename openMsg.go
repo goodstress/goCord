@@ -36,12 +36,11 @@ func (user *User) CreateOpenMsg() {
 	//if err != nil {
 	//	log.Print("marshal error: ", err)
 	//}
-	//user.auth.OpenMsg = []byte(string(user.auth.OpenMsg) + "}")
+	//user.Auth.OpenMsg = []byte(string(user.Auth.OpenMsg) + "}")
 	log.Print("marshalled msg")
 	log.Print(string(user.auth.OpenMsg))
 	//return msg.Marshal()
 }
-
 
 type OpenMsg struct {
 	Op int64 `json:"op"`

@@ -6,7 +6,7 @@ import (
 	"log"
 )
 
-func (user *User) GrabFingerprint()  {
+func (user *User) GrabFingerprint() {
 	log.Println("proxy", user.auth.proxy)
 	log.Print("grabbing fingerprint")
 	fingerPrintClient := resty.New()
@@ -22,7 +22,7 @@ func (user *User) GrabFingerprint()  {
 			"User-Agent":      user.auth.userAgent,
 			"Accept":          "*/*",
 			"Accept-Language": "en-US,en;q=0.5",
-			// "X-Track": auth.superProp,
+			// "X-Track": Auth.superProp,
 			"DNT":        "1",
 			"Connection": "keep-alive",
 			"Referer":    "https://discordapp.com/",

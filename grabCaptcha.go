@@ -12,9 +12,12 @@ import (
 
 var configuration = config{apikey: "***REMOVED***", googlekey: "***REMOVED***", siteurl: "discordapp.com"}
 
-func (user *User) NewKey() string {
+func (user *User) NewKey() Captcha {
 
 	captchaID := newSolve(configuration.apikey, configuration.googlekey, configuration.siteurl)
+	currentCaptcha := Captcha{
+		captchaID: captchaID,
+	}
 	log.Println("solveTest: ", captchaID)
 	// s := spinner.New(spinner.CharSets[41], 100*time.Millisecond) // Build our new spinner
 	// s.Start()                                                    // Start the spinner
@@ -22,7 +25,7 @@ func (user *User) NewKey() string {
 	// time.Sleep(15 * time.Second) // Run for some time to simulate work
 	// s.Stop()
 
-	code := getSolve(configuration.apikey, captchaID)
+	code := getSolve(configuration.apikey, currentCaptcha)
 	// log.Println("id", code)
 	return code
 }
@@ -45,10 +48,9 @@ func newSolve(apiKey string, googlekey string, pageurl string) string {
 	r := gjson.Get(resp.String(), "request")
 	return r.String()
 }
-func getSolve(apiKey string, id string) string {
+func getSolve(apiKey string, captcha Captcha) Captcha {
 	client := resty.New()
 	client.SetQueryParam("key", apiKey)
-	client.SetQueryParam("id", id)
 	client.SetQueryParam("action", "get")
 	client.SetQueryParam("json", "1")
 	// res := ""
@@ -64,14 +66,16 @@ func getSolve(apiKey string, id string) string {
 	for {
 		select {
 		case <-check.C:
+			client.SetQueryParam("id", captcha.captchaID)
 			resp, err := client.R().Get("https://2captcha.com/res.php")
 			if err != nil {
-				return ""
+				log.Print("error in getSolve captcha....: ", err)
+
 			}
 			log.Println(resp.String())
 			errorMsg := gjson.Get(resp.String(), "request")
 			if errorMsg.String() == "ERROR_CAPTCHA_UNSOLVABLE" {
-				id = newSolve(configuration.apikey, configuration.googlekey, configuration.siteurl)
+				captcha.captchaID = newSolve(configuration.apikey, configuration.googlekey, configuration.siteurl)
 
 			}
 			if gjson.Get(resp.String(), "status").Int() != 1 {
@@ -80,7 +84,8 @@ func getSolve(apiKey string, id string) string {
 			} else {
 				r := gjson.Get(resp.String(), "request")
 				log.Println(r.String())
-				return r.String()
+				captcha.captchaKey = r.String()
+				return captcha
 			}
 
 			check = time.NewTicker(5 * time.Second)
@@ -109,6 +114,9 @@ func getSolve(apiKey string, id string) string {
 type New struct {
 	Status  int64  `json:"status"`
 	Request string `json:"request"`
+}
+type Captcha struct {
+	captchaID, captchaKey string
 }
 
 // CodeKey captcha solve code
