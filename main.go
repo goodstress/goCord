@@ -469,9 +469,7 @@ type Auth struct {
 	OpenMsg                                                                []byte
 	Captcha                                                                Captcha
 }
-type PhoneNumber struct {
-	phoneNumber, numberId string
-}
+
 type UserDetails struct {
 	username, password, email string
 }

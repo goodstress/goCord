@@ -141,3 +141,7 @@ func (user *User) sendCodeToDiscord(code string) {
 	}
 
 }
+
+type PhoneNumber struct {
+	phoneNumber, numberId string
+}
