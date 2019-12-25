@@ -60,7 +60,7 @@ func (user *User) openSocket(smsNeeded chan string, wg *sync.WaitGroup) {
 	//done := make(chan struct{})
 	//_ = c.WriteMessage(websocket.TextMessage, user.Auth.OpenMsg)
 
-	heartbeat := time.NewTicker(39000 * time.Millisecond)
+	heartbeat := time.NewTicker(30000 * time.Millisecond)
 
 	go func() {
 		defer c.Close()
@@ -107,7 +107,10 @@ func (user *User) openSocket(smsNeeded chan string, wg *sync.WaitGroup) {
 	}()
 
 	go func() {
-
+		defer func() {
+			heartbeat.Stop()
+			c.Close()
+		}()
 		//smsTicker := time.NewTicker(20*time.Second)
 		//sendOpen := time.NewTicker(5*time.Second)
 		for {

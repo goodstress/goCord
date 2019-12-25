@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/tls"
 	b64 "encoding/base64"
+	"github.com/EDDYCJY/fake-useragent"
 	"github.com/bxcodec/faker/v3"
 	"github.com/go-resty/resty/v2"
 	"github.com/mssola/user_agent"
@@ -188,8 +189,10 @@ func (user *User) genUserAgent() {
 	//noinspection ALL
 	//todo implement pulling of random useragent from slice that is loaded from text file.
 	//agent := "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36"
-	user.auth.userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.88 Safari/537.36"
-	//user.Auth.userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36"
+	//user.auth.userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.88 Safari/537.36"
+	//user.auth.userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36"
+
+	user.auth.userAgent = browser.Chrome()
 	log.Println("Set useragent to: ", user.auth.userAgent)
 }
 
@@ -206,6 +209,7 @@ func (user *User) register(complete *sync.WaitGroup) {
 	captcha := user.NewKey()
 	log.Print("captcha: ", captcha)
 	realRegister := RegPayload{Fingerprint: user.auth.fingerprint, Email: user.details.email, Username: user.details.username, Password: user.details.password, Invite: nil, Consent: true, GiftCodeSkuID: nil, CAPTCHAKey: user.auth.Captcha.captchaKey}
+	log.Print(realRegister)
 	registerURL := "https://discordapp.com/api/v6/auth/register"
 	client := resty.New()
 	client.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
@@ -226,6 +230,7 @@ func (user *User) register(complete *sync.WaitGroup) {
 	if err != nil {
 		log.Println(err)
 	}
+	log.Print(resp.String())
 	if resp.String() == `{"captcha_key": ["incorrect-captcha-sol"]}` {
 		user.badCaptcha()
 		user.register(complete)
@@ -238,16 +243,17 @@ func (user *User) register(complete *sync.WaitGroup) {
 	token := gjson.Get(resp.String(), "token").String()
 	if len(token) > 1 {
 		user.goodCaptcha()
+		user.auth.token = token
+		log.Println("set token in user to: ", token)
+		user.auth.cookies = resp.Cookies()
+		return
 	}
 	if len(token) == 0 {
 		log.Print("token not found")
 	}
 
 	log.Print(resp.String())
-	user.auth.cookies = resp.Cookies()
 
-	user.auth.token = token
-	log.Println("set token in user to: ", token)
 	//if len(token) > 0 {
 	//
 	//}
@@ -422,7 +428,7 @@ func (user *User) confirmEmail(confirmedWait *sync.WaitGroup) {
 			"accept-encoding":    "gzip, deflate, br",
 		}).SetCookies(user.auth.cookies).
 		SetBody(captchaMarshalled).
-		Post("https://discordapp.com/api/v6/Auth/verify")
+		Post("https://discordapp.com/api/v6/auth/verify")
 	if err != nil {
 		log.Print("error occurred with verifyWithCaptcha: ", err)
 	}

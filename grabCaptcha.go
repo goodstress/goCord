@@ -12,24 +12,23 @@ import (
 
 var configuration = config{apikey: "***REMOVED***", googlekey: "***REMOVED***", siteurl: "discordapp.com"}
 
-func (user *User) NewKey() Captcha {
+func (user *User) NewKey() string {
 
-	captchaID := newSolve(configuration.apikey, configuration.googlekey, configuration.siteurl)
-	currentCaptcha := Captcha{
-		captchaID: captchaID,
-	}
-	log.Println("solveTest: ", captchaID)
+	user.auth.Captcha.captchaID = user.newSolve(configuration.apikey, configuration.googlekey, configuration.siteurl)
+
+	log.Println("solveTest: ", user.auth.Captcha.captchaID)
 	// s := spinner.New(spinner.CharSets[41], 100*time.Millisecond) // Build our new spinner
 	// s.Start()                                                    // Start the spinner
 	// s.Suffix = "       Waiting 15 seconds till we request captcha"
 	// time.Sleep(15 * time.Second) // Run for some time to simulate work
-	// s.Stop()
+	// s.Stop()go
 
-	code := getSolve(configuration.apikey, currentCaptcha)
+	code := user.getSolve(configuration.apikey)
+	user.auth.Captcha.captchaKey = code
 	// log.Println("id", code)
 	return code
 }
-func newSolve(apiKey string, googlekey string, pageurl string) string {
+func (user *User) newSolve(apiKey string, googlekey string, pageurl string) string {
 	client := resty.New()
 	client.SetQueryParam("key", apiKey)
 	client.SetQueryParam("googlekey", googlekey)
@@ -45,10 +44,12 @@ func newSolve(apiKey string, googlekey string, pageurl string) string {
 	// var r New
 	// json.Unmarshal([]byte(resp.String()), &r)
 
-	r := gjson.Get(resp.String(), "request")
-	return r.String()
+	r := gjson.Get(resp.String(), "request").String()
+	user.auth.Captcha.captchaID = r
+	return r
+
 }
-func getSolve(apiKey string, captcha Captcha) Captcha {
+func (user *User) getSolve(apiKey string) string {
 	client := resty.New()
 	client.SetQueryParam("key", apiKey)
 	client.SetQueryParam("action", "get")
@@ -66,7 +67,7 @@ func getSolve(apiKey string, captcha Captcha) Captcha {
 	for {
 		select {
 		case <-check.C:
-			client.SetQueryParam("id", captcha.captchaID)
+			client.SetQueryParam("id", user.auth.Captcha.captchaID)
 			resp, err := client.R().Get("https://2captcha.com/res.php")
 			if err != nil {
 				log.Print("error in getSolve captcha....: ", err)
@@ -75,7 +76,7 @@ func getSolve(apiKey string, captcha Captcha) Captcha {
 			log.Println(resp.String())
 			errorMsg := gjson.Get(resp.String(), "request")
 			if errorMsg.String() == "ERROR_CAPTCHA_UNSOLVABLE" {
-				captcha.captchaID = newSolve(configuration.apikey, configuration.googlekey, configuration.siteurl)
+				user.newSolve(configuration.apikey, configuration.googlekey, configuration.siteurl)
 
 			}
 			if gjson.Get(resp.String(), "status").Int() != 1 {
@@ -84,8 +85,9 @@ func getSolve(apiKey string, captcha Captcha) Captcha {
 			} else {
 				r := gjson.Get(resp.String(), "request")
 				log.Println(r.String())
-				captcha.captchaKey = r.String()
-				return captcha
+				user.auth.Captcha.captchaKey = r.String()
+
+				return user.auth.Captcha.captchaKey
 			}
 
 			check = time.NewTicker(5 * time.Second)
