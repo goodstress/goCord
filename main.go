@@ -51,7 +51,7 @@ func (user *User) randomStickyIP() {
 
 	user.auth.proxy = ipString
 	user.auth.hostname = "gate.smartproxy.com:7000"
-	user.auth.user = "user-***REMOVED***-country-us-session-" + randSession
+	user.auth.user = "user-***REMOVED***-country-us-city-los_angeles-session-" + randSession
 
 }
 func createUser() {
@@ -192,7 +192,7 @@ func (user *User) genUserAgent() {
 	//user.auth.userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.88 Safari/537.36"
 	//user.auth.userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36"
 
-	user.auth.userAgent = browser.Chrome()
+	user.auth.userAgent = browser.Random()
 	log.Println("Set useragent to: ", user.auth.userAgent)
 }
 
@@ -214,6 +214,7 @@ func (user *User) register(complete *sync.WaitGroup) {
 	client := resty.New()
 	client.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 	client.SetProxy(user.auth.proxy)
+	client.SetTimeout(10 * time.Second)
 	client.SetCookies(user.auth.cookies)
 	//todo: handle incorrect captcha
 	resp, err := client.R().
@@ -228,7 +229,7 @@ func (user *User) register(complete *sync.WaitGroup) {
 		}).
 		Post(registerURL)
 	if err != nil {
-		log.Println(err)
+		log.Println(`registration request error main.go:220 :  `, err)
 	}
 	log.Print(resp.String())
 	if resp.String() == `{"captcha_key": ["incorrect-captcha-sol"]}` {
