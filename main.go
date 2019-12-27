@@ -46,7 +46,7 @@ func (user *User) randomStickyIP() {
 	//max := 29999
 	//randomPort := rand.Intn(max - min + 1) + min
 	//log.Print("random port: ", randomPort)
-	randSession := randstr.String(16)
+	randSession := randstr.String(16, "0123456789")
 	ipString := "http://user-***REMOVED***-country-us-session-" + randSession + ":***REMOVED***" + "@gate.smartproxy.com:7000"
 
 	user.auth.proxy = ipString
@@ -192,7 +192,7 @@ func (user *User) genUserAgent() {
 	//user.auth.userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.88 Safari/537.36"
 	//user.auth.userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36"
 
-	user.auth.userAgent = browser.Random()
+	user.auth.userAgent = browser.Chrome()
 	log.Println("Set useragent to: ", user.auth.userAgent)
 }
 
