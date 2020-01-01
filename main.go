@@ -47,7 +47,7 @@ func (user *User) randomStickyIP() {
 	//randomPort := rand.Intn(max - min + 1) + min
 	//log.Print("random port: ", randomPort)
 	randSession := randstr.String(16, "0123456789")
-	ipString := "http://user-***REMOVED***-country-us-session-" + randSession + ":***REMOVED***" + "@gate.smartproxy.com:7000"
+	ipString := "http://user-***REMOVED***-session-" + randSession + ":***REMOVED***" + "@gate.smartproxy.com:7000"
 
 	user.auth.proxy = ipString
 	user.auth.hostname = "gate.smartproxy.com:7000"
@@ -266,6 +266,27 @@ func (user *User) register(complete *sync.WaitGroup) {
 //	email string
 //}
 func (user *User) GenEmail() string {
+	email := user.generateEmail()
+	for {
+		log.Print("for loop ran once")
+		if strings.Contains(email, "inbox-me.top") || strings.Contains(email, "privacy-mail.top") {
+			user.details.email = email
+			log.Print("correct email ending")
+			return ""
+		} else {
+			email = user.generateEmail()
+			log.Print(email)
+
+		}
+	}
+
+	log.Print(user.details.email)
+
+	return user.details.email
+
+}
+
+func (user *User) generateEmail() string {
 	client := resty.New()
 	client.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 	client.SetProxy(user.auth.proxy)
@@ -299,11 +320,8 @@ func (user *User) GenEmail() string {
 		log.Print(err)
 	}
 	log.Print(secondRequest.String())
-	user.details.email = gjson.Get(secondRequest.String(), "email").String()
-	log.Print(user.details.email)
-
-	return user.details.email
-
+	email := gjson.Get(secondRequest.String(), "email").String()
+	return email
 }
 
 func (user *User) getVerifyString() string {
@@ -321,7 +339,7 @@ func (user *User) getVerifyString() string {
 		}
 		realVerifyUrl := realVerifyResponse.RawResponse.Request.URL.String()
 
-		justVerifyKey := strings.Replace(realVerifyUrl, "https://discordapp.com/verify?token=", "", 1)
+		justVerifyKey := strings.Replace(realVerifyUrl, "https://discordapp.com/verify#token=", "", 1)
 		log.Print("email verification key: ", justVerifyKey)
 		return justVerifyKey
 	}
@@ -366,7 +384,7 @@ func (user *User) confirmEmail(confirmedWait *sync.WaitGroup) {
 	client := resty.New()
 	client.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 	client.SetProxy(user.auth.proxy)
-	referrer := "https://discordapp.com/verify?token=" + verifyString
+	referrer := "https://discordapp.com/verify#token=" + verifyString
 	//initialMarshalled, err := initialPayload.Marshal()
 	//if err != nil {
 	//	log.Print("error occurred")
