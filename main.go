@@ -8,6 +8,7 @@ import (
 	"github.com/go-resty/resty/v2"
 	"github.com/mssola/user_agent"
 	"github.com/thanhpk/randstr"
+	"github.com/tidwall/sjson"
 	"log"
 	"math/rand"
 	"mvdan.cc/xurls/v2"
@@ -156,7 +157,7 @@ func (user *User) createSuperProp() {
 	prop.OS = ua.OSInfo().Name
 	prop.OSVersion = ua.OSInfo().Version
 	//current build number
-	prop.ClientBuildNumber = 49868
+	prop.ClientBuildNumber = 51893
 	prop.ClientEventSource = nil
 	prop.Device, prop.Referrer, prop.ReferringDomain, prop.ReferringDomainCurrent, prop.ReferrerCurrent = "", "", "", "", ""
 	prop.ReleaseChannel = "stable"
@@ -208,7 +209,7 @@ func (user *User) register(complete *sync.WaitGroup) {
 	complete.Add(1)
 	captcha := user.NewKey()
 	log.Print("captcha: ", captcha)
-	realRegister := RegPayload{Fingerprint: user.auth.fingerprint, Email: user.details.email, Username: user.details.username, Password: user.details.password, Invite: nil, Consent: true, GiftCodeSkuID: nil, CAPTCHAKey: user.auth.Captcha.captchaKey}
+	realRegister := user.constructRegistrationPayload()
 	log.Print(realRegister)
 	registerURL := "https://discordapp.com/api/v6/auth/register"
 	client := resty.New()
@@ -216,15 +217,23 @@ func (user *User) register(complete *sync.WaitGroup) {
 	client.SetProxy(user.auth.proxy)
 	client.SetTimeout(10 * time.Second)
 	client.SetCookies(user.auth.cookies)
+	client.SetContentLength(true)
+	client.SetHeader("User-Agent", user.auth.userAgent)
+	client.SetHeader("X-Fingerprint", user.auth.fingerprint)
+	client.SetHeader("X-Super-Properties", user.auth.SuperProp)
+	client.SetHeader("Content-Type", "application/json")
 	//todo: handle incorrect captcha
 	resp, err := client.R().
 		SetBody(realRegister).
 		SetHeaders(map[string]string{
 			"Accept":          "*/*",
+			"Accept-Encoding": "gzip, deflate, br",
 			"Accept-Language": "en-US,en;q=0.5",
 			"DNT":             "1",
 			"Connection":      "keep-alive",
-			"Referer":         "https://discordapp.com/",
+			"Origin":          "https://discordapp.com",
+			"Host":            "discordapp.com",
+			"Referer":         "https://discordapp.com/register",
 			"TE":              "Trailers",
 		}).
 		Post(registerURL)
@@ -260,6 +269,16 @@ func (user *User) register(complete *sync.WaitGroup) {
 	//}
 	//complete.Done()
 
+}
+
+func (user *User) constructRegistrationPayload() string {
+	defaultPayload := `{"fingerprint":"fingerprintHere","email":"emailHere","username":"userHere","password":"passwordHere","invite":null,"consent":true,"gift_code_sku_id":null,"captcha_key":"hi"}`
+	setFingerprint, _ := sjson.Set(defaultPayload, "fingerprint", user.auth.fingerprint)
+	setEmail, _ := sjson.Set(setFingerprint, "email", user.details.email)
+	setUsername, _ := sjson.Set(setEmail, "username", user.details.username)
+	setPassword, _ := sjson.Set(setUsername, "password", user.details.password)
+	setCaptcha, _ := sjson.Set(setPassword, "captcha_key", user.auth.Captcha.captchaKey)
+	return setCaptcha
 }
 
 //type emailString struct {

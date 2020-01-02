@@ -4,20 +4,21 @@ import (
 	"github.com/go-resty/resty/v2"
 	"github.com/tidwall/gjson"
 	"log"
+	"time"
 )
 
 func (user *User) GrabFingerprint() {
 	log.Println("proxy", user.auth.proxy)
 	log.Print("grabbing fingerprint")
-	fingerPrintClient := resty.New()
-	//fingerPrintClient.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
-	log.Print("created fingerPrintClient for fingerprint")
+	client := resty.New()
+	//client.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+	log.Print("created client for fingerprint")
 	proxy := user.auth.proxy
-	fingerPrintClient.SetProxy(proxy)
+	client.SetProxy(proxy)
 	log.Println("set proxy")
-	log.Println("proxy set: ", fingerPrintClient.IsProxySet())
-
-	resp, err := fingerPrintClient.R().
+	log.Println("proxy set: ", client.IsProxySet())
+	client.SetTimeout(10 * time.Second)
+	resp, err := client.R().
 		SetHeaders(map[string]string{
 			"User-Agent":      user.auth.userAgent,
 			"Accept":          "*/*",
@@ -34,7 +35,7 @@ func (user *User) GrabFingerprint() {
 		log.Println(err)
 	}
 
-	fingerprint := gjson.Get(resp.String(), "grabFingerprint")
+	fingerprint := gjson.Get(resp.String(), "fingerprint")
 	log.Println("grabFingerprint", fingerprint.String())
 	user.auth.fingerprint = fingerprint.String()
 }

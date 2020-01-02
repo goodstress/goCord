@@ -30,6 +30,7 @@ func (user *User) CreateOpenMsg() {
 	msg.D.Properties.OS = ua.OSInfo().Name
 	msg.D.Properties.OSVersion = ua.OSInfo().Version
 	msg.D.Properties.ClientEventSource = "null"
+	msg.D.Properties.ClientBuildNumber = 51893
 
 	msg.D.Properties.Browser, msg.D.Properties.BrowserVersion = ua.Browser()
 	user.auth.OpenMsg, _ = msg.Marshal()
