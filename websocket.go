@@ -121,7 +121,7 @@ func (user *User) openSocket(smsNeeded chan string, wg *sync.WaitGroup) {
 			//}
 			select {
 			case <-heartbeat.C:
-				err = c.WriteMessage(websocket.TextMessage, []byte(`{"op":1,"d":37}`))
+				err = c.WriteMessage(websocket.TextMessage, []byte(`{"op":1,"d":2}`))
 				if err != nil {
 					log.Print("writeHeartBeat error: ", err)
 					log.Print("exiting now......")
