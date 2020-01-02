@@ -97,8 +97,14 @@ func (user *User) openSocket(smsNeeded chan string, wg *sync.WaitGroup) {
 			if verifiedTrue == "true" {
 				log.Print("verified is done")
 				smsNeeded <- "verified"
-				wg.Add(1)
-				go user.writeAccount(wg)
+				log.Print(user.auth.token)
+				log.Print(user.auth.token)
+				log.Print(user.auth.token)
+				log.Print(user.auth.token)
+				log.Print(user.auth.token)
+				log.Print(user.auth.token)
+				//wg.Add(1)
+				//go user.writeAccount(wg)
 			}
 			//log.Printf("recv: %s", message)
 

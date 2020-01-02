@@ -8,7 +8,7 @@ import (
 )
 
 func (user *User) writeAccount(wg *sync.WaitGroup) {
-	defer wg.Done()
+	//defer wg.Done()
 	log.Print("writing account")
 	jsonFile, err := os.OpenFile("accounts.json", os.O_CREATE, os.ModePerm)
 	if err != nil {

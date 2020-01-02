@@ -3,12 +3,12 @@ package main
 import (
 	"crypto/tls"
 	b64 "encoding/base64"
-	"github.com/EDDYCJY/fake-useragent"
 	"github.com/bxcodec/faker/v3"
 	"github.com/go-resty/resty/v2"
 	"github.com/mssola/user_agent"
 	"github.com/thanhpk/randstr"
 	"github.com/tidwall/sjson"
+	"github.com/viewratio/goCord/util"
 	"log"
 	"math/rand"
 	"mvdan.cc/xurls/v2"
@@ -126,6 +126,14 @@ func (user *User) init() {
 		log.Print("writing account")
 		go user.writeAccount(&writeAccount)
 		log.Print("finished writing account")
+		rand.Seed(time.Now().UnixNano())
+		min := 25
+		max := 35
+		number := rand.Intn(max-min+1) + min
+		time.Sleep(time.Duration(number) * time.Second)
+
+		util.JoinServerToken("***REMOVED***", user.auth.token)
+
 	}
 	log.Print("after if statement")
 	log.Print("socket go process created")
@@ -191,9 +199,9 @@ func (user *User) genUserAgent() {
 	//todo implement pulling of random useragent from slice that is loaded from text file.
 	//agent := "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36"
 	//user.auth.userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.88 Safari/537.36"
-	//user.auth.userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36"
+	user.auth.userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36"
 
-	user.auth.userAgent = browser.Chrome()
+	//user.auth.userAgent = browser.Chrome()
 	log.Println("Set useragent to: ", user.auth.userAgent)
 }
 
@@ -260,6 +268,8 @@ func (user *User) register(complete *sync.WaitGroup) {
 	}
 	if len(token) == 0 {
 		log.Print("token not found")
+		log.Print("exiting now..........")
+		wg.Done()
 	}
 
 	log.Print(resp.String())
@@ -470,7 +480,7 @@ func (user *User) confirmEmail(confirmedWait *sync.WaitGroup) {
 	if err != nil {
 		log.Print("error occurred with verifyWithCaptcha: ", err)
 	}
-	if verifyWithCaptcha.String() == `{"captcha_key": ["incorrect-captcha-sol"]}` {
+	if verifyWithCaptcha.String() == `{"captcha_key": ["incorrect-captcha-sol"]}` || verifyWithCaptcha.String() == `{"captcha_key": ["timeout-or-duplicate"]}` || verifyWithCaptcha.String() == `{"captcha_key": ["invalid-keys"]}` {
 		log.Print("captcha incorrect")
 		user.badCaptcha()
 		user.confirmEmail(confirmedWait)

@@ -75,7 +75,7 @@ func (user *User) getSolve(apiKey string) string {
 			}
 			log.Println(resp.String())
 			errorMsg := gjson.Get(resp.String(), "request")
-			if errorMsg.String() == "ERROR_CAPTCHA_UNSOLVABLE" {
+			if errorMsg.String() == "ERROR_CAPTCHA_UNSOLVABLE" || errorMsg.String() == "ERROR_WRONG_CAPTCHA_ID" {
 				user.newSolve(configuration.apikey, configuration.googlekey, configuration.siteurl)
 
 			}
